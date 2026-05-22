@@ -6,7 +6,7 @@ Defines the core data models used throughout the application.
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RecallItem(BaseModel):
@@ -42,9 +42,8 @@ class RecallItem(BaseModel):
         description="Custom metadata storage",
     )
     
-    class Config:
-        """Pydantic configuration."""
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "title": "Machine Learning Basics",
                 "content": "A machine learning model learns patterns from data...",
@@ -53,6 +52,7 @@ class RecallItem(BaseModel):
                 "tags": ["ml", "ai", "learning"],
             }
         }
+    )
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary.

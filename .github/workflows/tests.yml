@@ -1,0 +1,35 @@
+name: CI Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Create virtual environment
+        run: python -m venv .venv
+
+      - name: Upgrade pip and build tools
+        run: .venv/bin/python -m pip install -U pip setuptools wheel
+
+      - name: Install requirements
+        run: .venv/bin/python -m pip install -r requirements.txt
+
+      - name: Run tests
+        run: .venv/bin/python -m pytest -q

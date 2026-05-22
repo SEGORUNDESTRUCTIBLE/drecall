@@ -4,13 +4,13 @@ Provides integration with Google's Gemini API, supporting both
 text and multimodal inputs with advanced reasoning capabilities.
 """
 
-import logging
-import os
-import time
 import json
+import logging
 import re
+import time
 from typing import Any, Dict, Optional
 
+from config import get_settings
 from .base_provider import BaseProvider
 
 logger = logging.getLogger(__name__)
@@ -54,12 +54,8 @@ class GeminiProvider(BaseProvider):
             timeout: Request timeout in seconds (default: 30).
             **kwargs: Additional configuration (e.g., temperature, top_p).
         """
-        # Resolve model alias to full name
         model = GEMINI_MODELS.get(model.lower()) if model.lower() in GEMINI_MODELS else model
-        
-        # allow API key to be pulled from environment if not provided
-        if not api_key:
-            api_key = os.environ.get("GEMINI_API_KEY")
+        api_key = api_key or get_settings().gemini_api_key
 
         super().__init__(api_key=api_key, model=model, timeout=timeout, **kwargs)
         self.retries = retries

@@ -8,6 +8,6 @@ Usage:
     settings = get_settings()
 """
 
-from .settings import Settings, get_settings, reset_settings
+from .settings import Settings, settings, get_settings, reset_settings
 
-__all__ = ["Settings", "get_settings", "reset_settings"]
+__all__ = ["Settings", "settings", "get_settings", "reset_settings"]

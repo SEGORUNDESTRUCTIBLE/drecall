@@ -1,85 +1,50 @@
-"""Notion data fetching.
+"""Utilities for fetching Notion pages and metadata for duplicate detection."""
 
-Handles retrieving recall items from Notion databases.
-"""
+import logging
+from typing import Optional, Dict, Any, List
 
-from typing import Any, List, Optional
+from config import get_settings
+from .notion_client import NotionClientWrapper
 
-from core.schemas import RecallItem
+logger = logging.getLogger(__name__)
 
 
 class NotionFetcher:
-    """Fetcher for retrieving recall items from Notion.
-    
-    Handles querying Notion databases and converting pages
-    back to RecallItem objects.
-    """
-    
-    def __init__(self, notion_client: Any) -> None:
-        """Initialize Notion fetcher.
-        
-        Args:
-            notion_client: NotionClient instance.
-        """
-        self.client = notion_client
-    
-    def fetch_item(self, page_id: str) -> RecallItem:
-        """Fetch a single recall item from Notion.
-        
-        Args:
-            page_id: Notion page ID.
-            
-        Returns:
-            RecallItem converted from Notion page.
-        """
-        # TODO: Implement item fetching
-        # - Query Notion for page
-        # - Extract page properties
-        # - Fetch page blocks/content
-        # - Convert to RecallItem
-        # - Return item
-        raise NotImplementedError("Item fetching not yet implemented")
-    
-    def fetch_all(
-        self,
-        database_id: str,
-        filter_: Optional[dict] = None,
-        limit: Optional[int] = None,
-    ) -> List[RecallItem]:
-        """Fetch all items from a Notion database.
-        
-        Args:
-            database_id: Notion database ID.
-            filter_: Query filter (optional).
-            limit: Maximum number of items (optional).
-            
-        Returns:
-            List of RecallItems from database.
-        """
-        # TODO: Implement batch fetching
-        # - Query database
-        # - Handle pagination
-        # - Convert pages to RecallItems
-        # - Return list of items
-        raise NotImplementedError("Batch fetching not yet implemented")
-    
-    def fetch_by_tag(
-        self,
-        database_id: str,
-        tag: str,
-    ) -> List[RecallItem]:
-        """Fetch items with specific tag.
-        
-        Args:
-            database_id: Notion database ID.
-            tag: Tag to filter by.
-            
-        Returns:
-            List of matching RecallItems.
-        """
-        # TODO: Implement tag-based fetching
-        # - Build filter for tag
-        # - Query database
-        # - Convert to RecallItems
-        # - Return results
-        raise NotImplementedError("Tag-based fetching not yet implemented")
+    def __init__(self, client: Optional[NotionClientWrapper] = None, database_id: Optional[str] = None):
+        self.client = client or NotionClientWrapper()
+        active_settings = get_settings()
+
+        resolved_datasource = active_settings.notion_datasource_id
+        resolved_database = database_id or active_settings.notion_database_id
+
+        if resolved_datasource:
+            self.target_id = resolved_datasource
+            self.datasource_mode = True
+            if resolved_database:
+                logger.info("Using NOTION_DATASOURCE_ID because datasource config is present")
+        else:
+            self.target_id = resolved_database
+            self.datasource_mode = False
+            if resolved_database:
+                logger.warning("Legacy NOTION_DATABASE_ID detected; consider migrating to NOTION_DATASOURCE_ID")
+
+    def fetch_pages(self, limit: int = 50) -> List[Dict[str, Any]]:
+        if not self.target_id:
+            raise ValueError("No database/datasource id configured for fetching pages")
+        try:
+            if self.datasource_mode:
+                path = f"data_sources/{self.target_id}/query"
+                res = self.client.request("POST", path, json={"page_size": limit})
+            else:
+                res = self.client.query_database(database_id=self.target_id, page_size=limit)
+            return res.get("results", [])
+        except Exception:
+            logger.exception("Failed to fetch pages from Notion")
+            return []
+
+    def fetch_page(self, page_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            return self.client.retrieve_page(page_id=page_id)
+        except Exception:
+            logger.exception("Failed to retrieve Notion page")
+            return None

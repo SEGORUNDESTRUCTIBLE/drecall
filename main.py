@@ -12,13 +12,13 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import get_settings
+from config import settings
 from core.schemas import RecallItem
 from providers import BaseProvider, GroqProvider, GeminiProvider
 
-# Configure logging
+# Configure logging from settings once available
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, settings.log_level, logging.INFO),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -101,13 +101,13 @@ def main() -> int:
         Exit code (0 for success, non-zero for errors).
     """
     try:
-        # Load settings
-        settings = get_settings()
-        
+        settings.validate_configuration()
+
         logger.info(f"=" * 60)
         logger.info(f"Starting {settings.app_name} v{settings.version}")
         logger.info(f"Environment: {settings.environment}")
         logger.info(f"Active providers: {settings.get_active_providers()}")
+        logger.info(f"Log level: {settings.log_level}")
         logger.info(f"=" * 60)
         
         # Initialize providers
@@ -141,7 +141,7 @@ def main() -> int:
         return 0
         
     except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=settings.debug if 'settings' in locals() else True)
+        logger.error(f"Fatal error: {e}", exc_info=settings.debug)
         return 1
 
 

@@ -4,13 +4,13 @@ Provides integration with Groq's API for high-speed LLM inference.
 Groq specializes in fast inference with excellent latency characteristics.
 """
 
-import logging
-import os
-import time
 import json
+import logging
 import re
+import time
 from typing import Any, Dict, Optional
 
+from config import get_settings
 from .base_provider import BaseProvider
 
 logger = logging.getLogger(__name__)
@@ -49,25 +49,16 @@ class GroqProvider(BaseProvider):
         
         Args:
             api_key: Groq API key from https://console.groq.com/
-            model: Model name (default: mixtral-8x7b-32768).
+            model: Model name (default: mixtral).
                    Can use keys like 'mixtral', 'llama2' or full model names.
             timeout: Request timeout in seconds (default: 30).
             **kwargs: Additional configuration (e.g., temperature, max_tokens defaults).
         """
-        # allow API key to be pulled from environment if not provided
-        if not api_key:
-            api_key = os.environ.get("GROQ_API_KEY")
+        active_settings = get_settings()
+        api_key = api_key or active_settings.groq_api_key
 
-        # Determine model: prefer explicit argument, then runtime settings, then env var
-        resolved_model = model
-        if not resolved_model:
-            try:
-                from config.settings import get_settings
-                settings = get_settings()
-                resolved_model = settings.get_provider("groq")
-            except Exception:
-                # fallback to environment variable if settings unavailable
-                resolved_model = os.environ.get("GROQ_MODEL")
+        # Determine model: explicit argument first, otherwise settings-driven model
+        resolved_model = model or active_settings.get_provider("groq")
 
         # Resolve alias names (e.g., 'mixtral' -> full model id)
         if resolved_model and isinstance(resolved_model, str):

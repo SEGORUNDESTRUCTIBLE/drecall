@@ -1,3 +1,62 @@
+"""Create and manage Notion databases for dRecall.
+
+Provides helper to programmatically create a Notion database with a
+schema suitable for storing RecallItem entries.
+"""
+
+import logging
+from typing import Dict, Any, Optional
+
+from .notion_client import NotionClientWrapper
+
+logger = logging.getLogger(__name__)
+
+
+DEFAULT_SCHEMA = {
+    "Title": {"title": {}},
+    "Tags": {"multi_select": {}},
+    "Source": {"rich_text": {}},
+    "Template": {"select": {}},
+    "Processed": {"checkbox": {}},
+    "Enhanced": {"checkbox": {}},
+    "Created At": {"date": {}},
+    "Updated At": {"last_edited_time": {}},
+    "Metadata": {"rich_text": {}},
+}
+
+
+class DatabaseCreator:
+    def __init__(self, client: Optional[NotionClientWrapper] = None):
+        self.client = client or NotionClientWrapper()
+
+    def create_database(self, parent_page_id: str, title: str, properties: Optional[Dict[str, Any]] = None, parent_type: str = "page") -> Dict[str, Any]:
+        """Create a Notion database under a parent page.
+
+        Args:
+            parent_page_id: Page ID under which to create the database.
+            title: Human-readable title for the database.
+            properties: Optional properties dict to override DEFAULT_SCHEMA.
+
+        Returns:
+            API response dict from Notion.
+        """
+        props = DEFAULT_SCHEMA.copy()
+        if properties:
+            props.update(properties)
+
+        body = {
+            "title": [{"type": "text", "text": {"content": title}}],
+            "properties": props,
+        }
+
+        logger.info(f"Creating Notion database '{title}' under {parent_type} {parent_page_id}")
+        if parent_type == "datasource":
+            # Use low-level request to create a datasource-aware database if supported
+            path = f"data_sources/{parent_page_id}/databases"
+            return self.client.request("POST", path, json=body)
+        else:
+            body["parent"] = {"type": "page_id", "page_id": parent_page_id}
+            return self.client.create_database(**body)
 """Database creation utilities for Notion.
 
 Provides utilities for creating and configuring Notion databases

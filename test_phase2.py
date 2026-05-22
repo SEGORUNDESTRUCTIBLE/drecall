@@ -8,7 +8,7 @@ Run with: python test_phase2.py
 """
 
 import logging
-from config import get_settings
+from config import settings
 from core import RecallItem, ProviderResponse
 from providers import BaseProvider, GroqProvider, GeminiProvider
 
@@ -22,7 +22,6 @@ def test_settings():
     logger.info("TEST 1: Settings and Configuration")
     logger.info("="*60)
     
-    settings = get_settings()
     logger.info(f"✓ Settings loaded successfully")
     logger.info(f"  App: {settings.app_name} v{settings.version}")
     logger.info(f"  Environment: {settings.environment}")
@@ -58,7 +57,7 @@ def test_schemas():
     # Create a ProviderResponse (demonstrating standardized output)
     response = ProviderResponse(
         provider="groq",
-        model="mixtral-8x7b-32768",
+        model="mixtral",
         text="Docker containers isolate applications...",
         tokens_used=45,
         latency_ms=234.5,
@@ -76,13 +75,11 @@ def test_provider_initialization():
     logger.info("TEST 3: Provider Initialization")
     logger.info("="*60)
     
-    settings = get_settings()
-    
     # Test Groq provider
     try:
         groq = GroqProvider(
             api_key="test_key_for_demo",
-            model="mixtral-8x7b-32768",
+            model="mixtral",
             timeout=30,
         )
         logger.info(f"✓ GroqProvider initialized: {groq}")
@@ -117,7 +114,7 @@ def test_provider_interface():
     logger.info("TEST 4: Provider Interface Compliance")
     logger.info("="*60)
     
-    groq = GroqProvider(api_key="test", model="mixtral-8x7b-32768")
+    groq = GroqProvider(api_key="test", model="mixtral")
     gemini = GeminiProvider(api_key="test", model="gemini-pro")
     
     providers = {"groq": groq, "gemini": gemini}
@@ -148,7 +145,7 @@ def test_provider_agnosticism():
     
     # Create instances
     providers = {
-        "groq": GroqProvider(api_key="test", model="mixtral-8x7b-32768"),
+        "groq": GroqProvider(api_key="test", model="mixtral"),
         "gemini": GeminiProvider(api_key="test", model="gemini-pro"),
     }
     
@@ -172,7 +169,7 @@ def test_error_handling():
     logger.info("TEST 6: Error Handling")
     logger.info("="*60)
     
-    groq = GroqProvider(api_key="test", model="mixtral-8x7b-32768")
+    groq = GroqProvider(api_key="test", model="mixtral")
     
     # Test invalid input
     try:

@@ -1,0 +1,60 @@
+F
+================================== FAILURES ===================================
+________________________________ test_settings ________________________________
+
+    def test_settings():
+        """Test configuration system."""
+        logger.info("\n" + "="*60)
+        logger.info("TEST 1: Settings and Configuration")
+        logger.info("="*60)
+    
+        logger.info(f"\u2713 Settings loaded successfully")
+        logger.info(f"  App: {settings.app_name} v{settings.version}")
+        logger.info(f"  Environment: {settings.environment}")
+        logger.info(f"  Project root: {settings.project_root}")
+>       logger.info(f"  Logs directory: {settings.logs_dir}")
+                                         ^^^^^^^^^^^^^^^^^
+
+test_phase2.py:29: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = Settings(app_name='drecall', version='0.1.0', environment=<Environment.development: 'development'>, debug=False, log_l... notion_datasource_id=None, notion_database_id=None, enable_notion=False, default_provider=<ProviderName.groq: 'groq'>)
+item = 'logs_dir'
+
+    def __getattr__(self, item: str) -> Any:
+        private_attributes = object.__getattribute__(self, '__private_attributes__')
+        if item in private_attributes:
+            attribute = private_attributes[item]
+            if hasattr(attribute, '__get__'):
+                return attribute.__get__(self, type(self))  # type: ignore
+    
+            try:
+                # Note: self.__pydantic_private__ cannot be None if self.__private_attributes__ has items
+                return self.__pydantic_private__[item]  # type: ignore
+            except KeyError as exc:
+                raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}') from exc
+        else:
+            # `__pydantic_extra__` can fail to be set if the model is not yet fully initialized.
+            # See `BaseModel.__repr_args__` for more details
+            try:
+                pydantic_extra = object.__getattribute__(self, '__pydantic_extra__')
+            except AttributeError:
+                pydantic_extra = None
+    
+            if pydantic_extra and item in pydantic_extra:
+                return pydantic_extra[item]
+            else:
+                if hasattr(self.__class__, item):
+                    return super().__getattribute__(item)  # Raises AttributeError if appropriate
+                else:
+                    # this is the current error
+>                   raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E                   AttributeError: 'Settings' object has no attribute 'logs_dir'. Did you mean: 'log_dir'?
+
+.venv\Lib\site-packages\pydantic\main.py:1042: AttributeError
+=========================== short test summary info ===========================
+FAILED test_phase2.py::test_settings - AttributeError: 'Settings' object has ...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.20s
+
+--stderr--
