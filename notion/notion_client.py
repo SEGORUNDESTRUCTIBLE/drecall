@@ -33,6 +33,10 @@ class NotionClientWrapper:
             try:
                 from notion_client import Client
                 if not self.api_key:
+                    # attempt to read directly from environment as a last resort
+                    import os
+                    self.api_key = os.environ.get("NOTION_API_KEY")
+                if not self.api_key:
                     raise ValueError("NOTION_API_KEY not set in environment or passed to NotionClientWrapper")
                 self._client = Client(auth=self.api_key)
                 logger.debug("Initialized Notion Client")
