@@ -71,7 +71,7 @@ class DuplicateMatch:
 class DuplicateResult:
     matches: List[DuplicateMatch] = field(default_factory=list)
     is_duplicate: bool = False
-    recommended_action: RecommendedAction = RecommendedAction.IGNORE
+    recommended_action: RecommendedAction = field(default_factory=lambda: RecommendedAction.IGNORE)
 
 
 class DuplicateDetectorContract(Protocol):
