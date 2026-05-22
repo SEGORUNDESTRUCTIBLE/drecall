@@ -5,6 +5,10 @@ text and multimodal inputs with advanced reasoning capabilities.
 """
 
 import logging
+import os
+import time
+import json
+import re
 from typing import Any, Dict, Optional
 
 from .base_provider import BaseProvider
@@ -34,9 +38,11 @@ class GeminiProvider(BaseProvider):
     
     def __init__(
         self,
-        api_key: str,
+        api_key: str = None,
         model: str = "gemini-pro",
         timeout: int = 30,
+        retries: int = 3,
+        retry_backoff: float = 1.0,
         **kwargs: Any,
     ) -> None:
         """Initialize Gemini provider.
@@ -51,7 +57,13 @@ class GeminiProvider(BaseProvider):
         # Resolve model alias to full name
         model = GEMINI_MODELS.get(model.lower()) if model.lower() in GEMINI_MODELS else model
         
+        # allow API key to be pulled from environment if not provided
+        if not api_key:
+            api_key = os.environ.get("GEMINI_API_KEY")
+
         super().__init__(api_key=api_key, model=model, timeout=timeout, **kwargs)
+        self.retries = retries
+        self.retry_backoff = retry_backoff
         self._client = None
         logger.debug(f"Initialized GeminiProvider with model: {self.model}")
     
@@ -72,6 +84,8 @@ class GeminiProvider(BaseProvider):
             try:
                 import google.generativeai as genai
                 logger.debug("Configuring Gemini client")
+                if not self.api_key:
+                    raise ValueError("Gemini API key is missing. Set GEMINI_API_KEY env var or pass api_key.")
                 genai.configure(api_key=self.api_key)
                 self._client = genai
             except ImportError as e:
@@ -126,6 +140,9 @@ class GeminiProvider(BaseProvider):
             genai = self.client
             model = genai.GenerativeModel(self.model)
             
+            # Extract internal flags
+            expect_json = kwargs.pop("expect_json", True)
+
             # Build generation config
             generation_config = {
                 "temperature": temperature,
@@ -135,16 +152,28 @@ class GeminiProvider(BaseProvider):
             generation_config.update(kwargs)
             
             # Make API call
-            response = model.generate_content(
-                full_prompt,
-                generation_config=generation_config,
-                request_options={"timeout": self.timeout},
-            )
+            def _call():
+                return model.generate_content(
+                    full_prompt,
+                    generation_config=generation_config,
+                    request_options={"timeout": self.timeout},
+                )
+
+            response = self._call_with_retries(_call)
             
             # Extract response text
-            result = response.text
-            logger.debug(f"Gemini API returned {len(result)} characters")
-            
+            # Extract response text and enforce JSON when required
+            result = getattr(response, "text", None)
+            if result is None:
+                # try dict like response
+                try:
+                    result = response["candidates"][0]["content"][0]["text"]
+                except Exception:
+                    result = str(response)
+
+            if expect_json:
+                return self._ensure_json(result)
+
             return result
             
         except TimeoutError as e:
@@ -170,11 +199,14 @@ class GeminiProvider(BaseProvider):
             model = genai.GenerativeModel(self.model)
             
             # Make a minimal test call
-            response = model.generate_content(
-                "Hi",
-                generation_config={"max_output_tokens": 5},
-                request_options={"timeout": self.timeout},
-            )
+            def _call():
+                return model.generate_content(
+                    "Hi",
+                    generation_config={"max_output_tokens": 5},
+                    request_options={"timeout": self.timeout},
+                )
+
+            response = self._call_with_retries(_call)
             
             logger.info("Gemini credentials validated successfully")
             return True
@@ -182,6 +214,46 @@ class GeminiProvider(BaseProvider):
         except Exception as e:
             logger.warning(f"Gemini credential validation failed: {e}")
             return False
+
+    def _call_with_retries(self, fn):
+        last_exc = None
+        for attempt in range(1, max(1, self.retries) + 1):
+            try:
+                return fn()
+            except Exception as e:
+                last_exc = e
+                wait = self.retry_backoff * (2 ** (attempt - 1))
+                logger.warning(f"Gemini call failed (attempt {attempt}/{self.retries}): {e}; retrying in {wait}s")
+                time.sleep(wait)
+        logger.error("All Gemini retries failed")
+        raise last_exc
+
+    def _ensure_json(self, text: str):
+        if text is None:
+            raise ValueError("Empty response from provider")
+        if isinstance(text, (dict, list)):
+            return text
+        try:
+            return json.loads(text)
+        except Exception:
+            match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
+            if match:
+                candidate = match.group(1)
+                try:
+                    return json.loads(candidate)
+                except Exception as e:
+                    logger.debug(f"Sanitization JSON parse failed: {e}")
+            lines = [l.strip() for l in text.splitlines() if ":" in l]
+            if lines:
+                try:
+                    out = {}
+                    for l in lines:
+                        k, v = l.split(":", 1)
+                        out[k.strip()] = v.strip()
+                    return out
+                except Exception:
+                    pass
+        raise ValueError("Provider returned malformed / non-JSON response")
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the current Gemini model.

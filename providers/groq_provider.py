@@ -5,6 +5,10 @@ Groq specializes in fast inference with excellent latency characteristics.
 """
 
 import logging
+import os
+import time
+import json
+import re
 from typing import Any, Dict, Optional
 
 from .base_provider import BaseProvider
@@ -15,7 +19,7 @@ logger = logging.getLogger(__name__)
 GROQ_MODELS = {
     "mixtral": "mixtral-8x7b-32768",
     "llama2": "llama2-70b-4096",
-    "default": "mixtral-8x7b-32768",
+    # keep alias map but do not hardcode a 'default' here; settings determine default
 }
 
 
@@ -34,9 +38,11 @@ class GroqProvider(BaseProvider):
     
     def __init__(
         self,
-        api_key: str,
-        model: str = "mixtral-8x7b-32768",
+        api_key: str = None,
+        model: Optional[str] = None,
         timeout: int = 30,
+        retries: int = 3,
+        retry_backoff: float = 1.0,
         **kwargs: Any,
     ) -> None:
         """Initialize Groq provider.
@@ -48,10 +54,30 @@ class GroqProvider(BaseProvider):
             timeout: Request timeout in seconds (default: 30).
             **kwargs: Additional configuration (e.g., temperature, max_tokens defaults).
         """
-        # Resolve model alias to full name
-        model = GROQ_MODELS.get(model.lower()) if model.lower() in GROQ_MODELS else model
-        
-        super().__init__(api_key=api_key, model=model, timeout=timeout, **kwargs)
+        # allow API key to be pulled from environment if not provided
+        if not api_key:
+            api_key = os.environ.get("GROQ_API_KEY")
+
+        # Determine model: prefer explicit argument, then runtime settings, then env var
+        resolved_model = model
+        if not resolved_model:
+            try:
+                from config.settings import get_settings
+                settings = get_settings()
+                resolved_model = settings.get_provider("groq")
+            except Exception:
+                # fallback to environment variable if settings unavailable
+                resolved_model = os.environ.get("GROQ_MODEL")
+
+        # Resolve alias names (e.g., 'mixtral' -> full model id)
+        if resolved_model and isinstance(resolved_model, str):
+            alias = resolved_model.lower()
+            if alias in GROQ_MODELS:
+                resolved_model = GROQ_MODELS[alias]
+
+        super().__init__(api_key=api_key, model=resolved_model, timeout=timeout, **kwargs)
+        self.retries = retries
+        self.retry_backoff = retry_backoff
         self._client = None
         logger.debug(f"Initialized GroqProvider with model: {self.model}")
     
@@ -73,6 +99,8 @@ class GroqProvider(BaseProvider):
             try:
                 from groq import Groq
                 logger.debug("Initializing Groq client")
+                if not self.api_key:
+                    raise ValueError("Groq API key is missing. Set GROQ_API_KEY env var or pass api_key.")
                 self._client = Groq(api_key=self.api_key)
             except ImportError as e:
                 logger.error("groq package not installed")
@@ -130,6 +158,9 @@ class GroqProvider(BaseProvider):
             
             logger.debug(f"Calling Groq API with model {self.model}")
             
+            # Extract internal flags (do not forward to API)
+            expect_json = kwargs.pop("expect_json", True)
+
             # Build request parameters
             request_params = {
                 "model": self.model,
@@ -141,13 +172,35 @@ class GroqProvider(BaseProvider):
             request_params.update(kwargs)
             
             # Make API call with timeout handling
-            response = self.client.chat.completions.create(
-                **request_params,
-                timeout=self.timeout,
-            )
+            # API call with retries
+            def _call():
+                return self.client.chat.completions.create(
+                    **request_params,
+                    timeout=self.timeout,
+                )
+
+            response = self._call_with_retries(_call)
             
             # Extract response text
-            result = response.choices[0].message.content
+            # Extract response text safely
+            raw = getattr(response, "choices", None)
+            if not raw:
+                raise RuntimeError("Empty response from Groq API")
+            # support both dict-like and object responses
+            try:
+                # response.choices[0].message.content or dict path
+                result = response.choices[0].message.content
+            except Exception:
+                try:
+                    result = response[0]
+                except Exception:
+                    result = str(response)
+
+            # sanitize and enforce JSON when requested
+            if expect_json:
+                return self._ensure_json(result)
+
+            return result
             logger.debug(f"Groq API returned {len(result)} characters")
             
             return result
@@ -172,12 +225,15 @@ class GroqProvider(BaseProvider):
             logger.debug("Validating Groq credentials")
             
             # Make a minimal test call
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": "Hi"}],
-                max_tokens=5,
-                timeout=self.timeout,
-            )
+            def _call():
+                return self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": "Hi"}],
+                    max_tokens=5,
+                    timeout=self.timeout,
+                )
+
+            response = self._call_with_retries(_call)
             
             logger.info("Groq credentials validated successfully")
             return True
@@ -185,6 +241,51 @@ class GroqProvider(BaseProvider):
         except Exception as e:
             logger.warning(f"Groq credential validation failed: {e}")
             return False
+
+    def _call_with_retries(self, fn):
+        """Call a function with simple retry/backoff logic."""
+        last_exc = None
+        for attempt in range(1, max(1, self.retries) + 1):
+            try:
+                return fn()
+            except Exception as e:
+                last_exc = e
+                wait = self.retry_backoff * (2 ** (attempt - 1))
+                logger.warning(f"Groq call failed (attempt {attempt}/{self.retries}): {e}; retrying in {wait}s")
+                time.sleep(wait)
+        logger.error("All Groq retries failed")
+        raise last_exc
+
+    def _ensure_json(self, text: str):
+        """Ensure the response is valid JSON, attempt sanitization if needed."""
+        if text is None:
+            raise ValueError("Empty response from provider")
+        if isinstance(text, (dict, list)):
+            return text
+        # Try direct parse
+        try:
+            return json.loads(text)
+        except Exception:
+            # attempt to extract first JSON object/array from text
+            match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
+            if match:
+                candidate = match.group(1)
+                try:
+                    return json.loads(candidate)
+                except Exception as e:
+                    logger.debug(f"Sanitization JSON parse failed: {e}")
+            # final fallback: attempt to coerce simple key:value lines into dict
+            lines = [l.strip() for l in text.splitlines() if ":" in l]
+            if lines:
+                try:
+                    out = {}
+                    for l in lines:
+                        k, v = l.split(":", 1)
+                        out[k.strip()] = v.strip()
+                    return out
+                except Exception:
+                    pass
+        raise ValueError("Provider returned malformed / non-JSON response")
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the current Groq model.
