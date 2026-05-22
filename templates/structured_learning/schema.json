@@ -1,0 +1,8 @@
+{
+  "template_name": "Structured Learning",
+  "description": "Transform raw notes into a structured learning object for study and review.",
+  "supported_input_types": ["text", "notes", "ocr"],
+  "output_format": "json",
+  "tags": ["structured_learning", "learning", "study", "review"],
+  "revision_support": true
+}

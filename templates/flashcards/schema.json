@@ -1,0 +1,8 @@
+{
+  "template_name": "Flashcards",
+  "description": "Convert raw notes into question-and-answer flashcards for active recall.",
+  "supported_input_types": ["text", "notes", "ocr"],
+  "output_format": "json",
+  "tags": ["flashcards", "active_recall", "study", "review"],
+  "revision_support": true
+}

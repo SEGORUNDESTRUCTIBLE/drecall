@@ -1,0 +1,57 @@
+{
+  "app_name": "drecall",
+  "version": "0.1.0",
+  "environment": "development",
+  "debug": true,
+  "log_level": "INFO",
+  "log_format": "json",
+  "providers": {
+    "groq": {
+      "enabled": true,
+      "model": "mixtral-8x7b-32768",
+      "timeout": 30,
+      "max_retries": 3
+    },
+    "gemini": {
+      "enabled": true,
+      "model": "gemini-pro",
+      "timeout": 30,
+      "max_retries": 3
+    }
+  },
+  "notion": {
+    "enabled": true,
+    "timeout": 30,
+    "max_retries": 3,
+    "batch_size": 10
+  },
+  "templates": {
+    "medical": {
+      "enabled": true,
+      "description": "Medical/Health information recall"
+    },
+    "coding": {
+      "enabled": true,
+      "description": "Programming and technical documentation"
+    },
+    "productivity": {
+      "enabled": true,
+      "description": "Productivity and task management"
+    },
+    "language": {
+      "enabled": true,
+      "description": "Language learning and reference"
+    },
+    "custom": {
+      "enabled": true,
+      "description": "Custom user-defined templates"
+    }
+  },
+  "processing": {
+    "max_retries": 3,
+    "request_timeout": 30,
+    "batch_size": 10,
+    "enable_duplicate_detection": true,
+    "enable_normalization": true
+  }
+}

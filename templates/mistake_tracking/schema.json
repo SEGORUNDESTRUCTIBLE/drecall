@@ -1,0 +1,8 @@
+{
+  "template_name": "Mistake Tracking",
+  "description": "Extract and classify mistakes from raw content, then suggest corrective explanations.",
+  "supported_input_types": ["text", "notes", "ocr"],
+  "output_format": "json",
+  "tags": ["mistake_tracking", "quality", "correction", "review"],
+  "revision_support": true
+}

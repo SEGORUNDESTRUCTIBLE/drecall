@@ -1,0 +1,8 @@
+{
+  "template_name": "Medical Notes",
+  "description": "Convert medical notes and clinical content into a structured format for study and recall.",
+  "supported_input_types": ["text", "notes", "ocr"],
+  "output_format": "json",
+  "tags": ["medical", "health", "clinical", "structured"],
+  "revision_support": true
+}
