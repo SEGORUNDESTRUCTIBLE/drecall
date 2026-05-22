@@ -1,0 +1,101 @@
+# dRecall - Production-grade .gitignore
+
+# Environment files
+.env
+.env.*
+.envrc
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+.Python
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+wheelhouse/
+*.egg
+*.whl
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Pytest / test cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+.coverage
+*.cover
+*.py,cover
+
+# mypy
+.mypy_cache/
+
+# Unit test / coverage reports
+htmlcov/
+coverage/
+
+# Logs
+logs/
+*.log
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+Icon?
+
+# Temp files
+*~
+*.swp
+*..tmp
+*.temp
+tmp/
+temp/
+
+# Backup files
+*.bak
+*.old
+
+# Secrets / credentials
+credentials.json
+secrets.yaml
+
+# Coverage and profiling
+.cache
+profiler/
+
+# Ignore compiled distributions and local artifacts
+*.egg-info/
+*.eggs/
+
+# Ignore build artifacts from other tools
+dist/
+build/
+__pycache__/
+
+# End of .gitignore
