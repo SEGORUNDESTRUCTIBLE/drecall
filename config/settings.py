@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",
-        case_sensitive=True,
+        case_sensitive=False,
         env_ignore_empty=True,
         extra="ignore",
     )
@@ -204,6 +204,12 @@ _settings_instance: Optional[Settings] = None
 def get_settings() -> Settings:
     global _settings_instance
     if _settings_instance is None:
+        env_file_path = Settings.model_config['env_file']
+        logger.debug(
+            "Resolved settings env file: %s (exists=%s)",
+            env_file_path,
+            Path(env_file_path).exists(),
+        )
         _settings_instance = Settings()
         # Overlay critical environment variables to ensure runtime overrides
         try:

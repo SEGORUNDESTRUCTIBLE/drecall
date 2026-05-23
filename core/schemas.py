@@ -24,6 +24,15 @@ class RecallItem(BaseModel):
     source: Optional[str] = Field(None, description="Source of the item")
     template_type: str = Field("custom", description="Template type used")
     tags: List[str] = Field(default_factory=list, description="Associated tags")
+    subject: Optional[str] = Field(None, description="Canonical subject for medical or structured recall items")
+    system: Optional[str] = Field(None, description="Canonical body system or domain classification")
+    error_type: Optional[str] = Field(None, description="Type of error or misunderstanding captured")
+    pattern_type: Optional[str] = Field(None, description="Pattern or image category for the recall item")
+    difficulty: Optional[str] = Field(None, description="Estimated difficulty of the recall item")
+    recall_priority: Optional[str] = Field(None, description="Importance or priority for recall scheduling")
+    revision_metadata: Dict[str, Any] = Field(default_factory=dict, description="Revision metadata and audit details")
+    duplicate_fingerprint: Optional[str] = Field(None, description="Deterministic fingerprint for duplicate detection")
+    embedding_metadata: Dict[str, Any] = Field(default_factory=dict, description="Embedding metadata or hooks for future vector storage")
     
     # Processing
     processed: bool = Field(False, description="Whether item has been processed")

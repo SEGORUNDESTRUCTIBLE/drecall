@@ -63,6 +63,61 @@ class Normalizer:
         return sorted(dict.fromkeys(normalized))
 
     @staticmethod
+    def normalize_subject(subject: Any) -> Optional[str]:
+        if subject is None:
+            return None
+        if isinstance(subject, str):
+            return Normalizer.normalize_text(subject).title()
+        return str(subject)
+
+    @staticmethod
+    def normalize_system(system: Any) -> Optional[str]:
+        if system is None:
+            return None
+        if isinstance(system, str):
+            return Normalizer.normalize_text(system).upper()
+        return str(system)
+
+    @staticmethod
+    def normalize_error_type(error_type: Any) -> Optional[str]:
+        if error_type is None:
+            return None
+        if isinstance(error_type, str):
+            normalized = Normalizer.normalize_text(error_type)
+            return normalized[0].upper() + normalized[1:] if normalized else normalized
+        return str(error_type)
+
+    @staticmethod
+    def normalize_pattern_type(pattern_type: Any) -> Optional[str]:
+        if pattern_type is None:
+            return None
+        if isinstance(pattern_type, str):
+            return Normalizer.normalize_text(pattern_type).title()
+        return str(pattern_type)
+
+    @staticmethod
+    def normalize_difficulty(difficulty: Any) -> Optional[str]:
+        if difficulty is None:
+            return None
+        if isinstance(difficulty, str):
+            value = difficulty.strip().lower()
+            if value in {"low", "medium", "high"}:
+                return value
+            return value
+        return str(difficulty)
+
+    @staticmethod
+    def normalize_priority(priority: Any) -> Optional[str]:
+        if priority is None:
+            return None
+        if isinstance(priority, str):
+            value = priority.strip().lower()
+            if value in {"low", "medium", "high", "urgent"}:
+                return value
+            return value
+        return str(priority)
+
+    @staticmethod
     def normalize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Sanitize metadata values and enforce consistent structure."""
         def sanitize(value: Any) -> Any:

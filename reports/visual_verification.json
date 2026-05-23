@@ -1,0 +1,217 @@
+{
+  "date": "2026-05-23T07:22:58.535816Z",
+  "total_inspected": 11,
+  "duplicates": [],
+  "pages": [
+    {
+      "id": "369d5193-1010-81ea-95ef-ea80ad2fc186",
+      "runtime_title": "Malformed Noisy — The input content appears to be",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "Malformed Noisy — The input content appears to be",
+      "block_count": 1,
+      "first_paragraph": "The input content appears to be incomplete JSON with random symbols and a URL.",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 14.0,
+      "first_paragraph_length": 78,
+      "study_readable": true,
+      "auto_enriched": true,
+      "auto_tail_last_word": "be",
+      "auto_tail_awkward": false,
+      "title_word_count": 8,
+      "title_length": 49
+    },
+    {
+      "id": "369d5193-1010-814b-8e39-ccbe921e4b67",
+      "runtime_title": "Duplicate Candidate — Explain the difference between HTTP and",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "Duplicate Candidate — Explain the difference between HTTP and",
+      "block_count": 1,
+      "first_paragraph": "Explain the difference between HTTP and HTTPS",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 7.0,
+      "first_paragraph_length": 45,
+      "study_readable": true,
+      "auto_enriched": true,
+      "auto_tail_last_word": "and",
+      "auto_tail_awkward": true,
+      "title_word_count": 8,
+      "title_length": 61
+    },
+    {
+      "id": "369d5193-1010-815c-b4d7-d1688dbdc15e",
+      "runtime_title": "Weak-memory Concept",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "Weak-memory Concept",
+      "blocks_error": "Could not find block with ID: 369d5193-1010-815c-b4d7-d1688dbdc15e. Make sure the relevant pages and databases are shared with your integration \"notion\".",
+      "block_count": 0,
+      "first_paragraph": "",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_length": 0,
+      "study_readable": false,
+      "auto_enriched": false,
+      "title_word_count": 3,
+      "title_length": 19
+    },
+    {
+      "id": "369d5193-1010-818c-be21-f228b14d021b",
+      "runtime_title": "Long Input — This is a long test input",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "Long Input — This is a long test input",
+      "blocks_error": "Could not find block with ID: 369d5193-1010-818c-be21-f228b14d021b. Make sure the relevant pages and databases are shared with your integration \"notion\".",
+      "block_count": 0,
+      "first_paragraph": "",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_length": 0,
+      "study_readable": false,
+      "auto_enriched": true,
+      "auto_tail_last_word": "input",
+      "auto_tail_awkward": false,
+      "title_word_count": 8,
+      "title_length": 38
+    },
+    {
+      "id": "369d5193-1010-81a7-91fc-cee5539de337",
+      "runtime_title": "Short Input — Osmosis",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "Short Input — Osmosis",
+      "blocks_error": "Could not find block with ID: 369d5193-1010-81a7-91fc-cee5539de337. Make sure the relevant pages and databases are shared with your integration \"notion\".",
+      "block_count": 0,
+      "first_paragraph": "",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_length": 0,
+      "study_readable": false,
+      "auto_enriched": true,
+      "auto_tail_last_word": "osmosis",
+      "auto_tail_awkward": true,
+      "title_word_count": 3,
+      "title_length": 21
+    },
+    {
+      "id": "369d5193-1010-81fd-90e4-f806dedbf898",
+      "runtime_title": "Coding Concept — Python list comprehensions provide a powerful",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "Coding Concept — Python list comprehensions provide a powerful",
+      "blocks_error": "Could not find block with ID: 369d5193-1010-81fd-90e4-f806dedbf898. Make sure the relevant pages and databases are shared with your integration \"notion\".",
+      "block_count": 0,
+      "first_paragraph": "",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_length": 0,
+      "study_readable": false,
+      "auto_enriched": true,
+      "auto_tail_last_word": "powerful",
+      "auto_tail_awkward": false,
+      "title_word_count": 8,
+      "title_length": 62
+    },
+    {
+      "id": "369d5193-1010-81b5-9358-c60342fdf45c",
+      "runtime_title": "Medical Concept — The pathophysiology of pernicious anemia explained",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "Medical Concept — The pathophysiology of pernicious anemia explained",
+      "blocks_error": "Could not find block with ID: 369d5193-1010-81b5-9358-c60342fdf45c. Make sure the relevant pages and databases are shared with your integration \"notion\".",
+      "block_count": 0,
+      "first_paragraph": "",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_length": 0,
+      "study_readable": false,
+      "auto_enriched": true,
+      "auto_tail_last_word": "explained",
+      "auto_tail_awkward": false,
+      "title_word_count": 8,
+      "title_length": 68
+    },
+    {
+      "id": "369d5193-1010-81f9-8cda-d0290baa591f",
+      "runtime_title": "Live flow test eeef5899-5dee-4dcf-8226-5d921b94ee2e",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "Live flow test eeef5899-5dee-4dcf-8226-5d921b94ee2e",
+      "blocks_error": "Could not find block with ID: 369d5193-1010-81f9-8cda-d0290baa591f. Make sure the relevant pages and databases are shared with your integration \"notion\".",
+      "block_count": 0,
+      "first_paragraph": "",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_length": 0,
+      "study_readable": false,
+      "auto_enriched": false,
+      "title_word_count": 8,
+      "title_length": 51
+    },
+    {
+      "id": "369d5193-1010-8140-a546-ccb517a4a10c",
+      "runtime_title": "Test create — hello",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "Test create — hello",
+      "blocks_error": "Could not find block with ID: 369d5193-1010-8140-a546-ccb517a4a10c. Make sure the relevant pages and databases are shared with your integration \"notion\".",
+      "block_count": 0,
+      "first_paragraph": "",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_length": 0,
+      "study_readable": false,
+      "auto_enriched": true,
+      "auto_tail_last_word": "hello",
+      "auto_tail_awkward": true,
+      "title_word_count": 3,
+      "title_length": 19
+    },
+    {
+      "id": "369d5193-1010-814d-aed3-c3dd89c605a9",
+      "runtime_title": "dRecall DB Persistence Test",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "dRecall DB Persistence Test",
+      "blocks_error": "Could not find block with ID: 369d5193-1010-814d-aed3-c3dd89c605a9. Make sure the relevant pages and databases are shared with your integration \"notion\".",
+      "block_count": 0,
+      "first_paragraph": "",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_length": 0,
+      "study_readable": false,
+      "auto_enriched": false,
+      "title_word_count": 4,
+      "title_length": 27
+    },
+    {
+      "id": "369d5193-1010-81aa-9e19-f70aaae68142",
+      "runtime_title": "dRecall DataSource Persistence Test",
+      "visible_properties": {
+        "Name": "<truncated>"
+      },
+      "title": "dRecall DataSource Persistence Test",
+      "blocks_error": "Could not find block with ID: 369d5193-1010-81aa-9e19-f70aaae68142. Make sure the relevant pages and databases are shared with your integration \"notion\".",
+      "block_count": 0,
+      "first_paragraph": "",
+      "diagnostic_note": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_length": 0,
+      "study_readable": false,
+      "auto_enriched": false,
+      "title_word_count": 4,
+      "title_length": 35
+    }
+  ]
+}

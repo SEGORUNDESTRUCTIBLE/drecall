@@ -24,7 +24,9 @@ class SequenceMatcherBackend:
     def _clean(text: str) -> str:
         if text is None:
             return ""
-        return str(text).strip().lower()
+
+        cleaned = str(text).strip().lower()
+        return " ".join(cleaned.split())
 
     def calculate_similarity(self, a: str, b: str) -> float:
         a_clean = self._clean(a)

@@ -1,6 +1,6 @@
-"""Terminal ingestion workflow for dRecall (Phase 7D).
+"""Terminal ingestion workflow for dRecall (Phase 8B).
 
-Provides a synchronous, terminal-only end-to-end ingestion loop that
+Provides a synchronous, terminal-only end-to-end ingestion and review loop that
 demonstrates the full pipeline without introducing async/embedding
 complexity. Components are dependency-injected and loosely coupled.
 """
@@ -14,6 +14,8 @@ from typing import List, Dict, Any
 
 from core.ingestion_engine import IngestionEngine, MockProvider
 from core.normalizers import Normalizer
+from core.retrieval import RetrievalEngine
+from core.runtime import RuntimeLoader, SessionManager
 from core.validators import Validator
 from core.revision_engine import RevisionEngine
 from core.schemas import RecallItem
@@ -23,12 +25,16 @@ try:
     from notion.notion_sink import NotionSink
 except Exception:
     NotionSink = None
+from notion.notion_manager import NotionManager
 
 from duplicate.backends.hybrid_duplicate_detector import HybridDuplicateDetector
 
 
 LOG = logging.getLogger("drecall.main")
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+debug_enabled = os.getenv("DRECALL_DEBUG", "").lower() in ("1", "true", "yes")
+logging.basicConfig(level=logging.DEBUG if debug_enabled else logging.INFO, format="[%(levelname)s] %(message)s")
+if debug_enabled:
+    LOG.info("Debug logging enabled via DRECALL_DEBUG")
 
 
 def select_datasource(default: str = None, datasource_map: Dict[str, Any] = None) -> str:
@@ -42,6 +48,14 @@ def select_datasource(default: str = None, datasource_map: Dict[str, Any] = None
     print("Available datasources:")
     for i, k in enumerate(keys, start=1):
         print(f" {i}. {k}")
+
+
+def resolve_datasource_alias(alias: str, env_status: Any) -> Optional[str]:
+    # The application uses logical datasource aliases for selection.
+    # Resolve the alias to a concrete Notion database UUID from env config.
+    if alias != "notion_default":
+        return alias
+    return env_status.database_id or env_status.datasource_id
 
     choice = input(f"Select datasource [1-{len(keys)}] or press Enter for {keys[0]}: ")
     try:
@@ -76,10 +90,264 @@ def multiline_input(prompt: str = ">>> ") -> str:
     return "\n".join(lines).strip()
 
 
+def select_workflow() -> str:
+    print("Workflow modes:")
+    print(" 1. Ingest new recall note")
+    print(" 2. Search memory")
+    print(" 3. Review due recall items")
+    print(" 4. Review weak memory")
+    print(" 5. Recent items")
+    print(" 6. Failed items")
+    print(" 7. Memory health")
+    print(" 8. Export snapshot")
+    print(" 9. Exit")
+    print(" T. Test Notion persistence")
+    print(" V. Validate runtime lifecycle")
+    choice = input("Select mode [1-9] (default 1): ")
+    if choice.strip() == "2":
+        return "search"
+    if choice.strip() == "3":
+        return "review_due"
+    if choice.strip() == "4":
+        return "review_weak"
+    if choice.strip() == "5":
+        return "recent"
+    if choice.strip() == "6":
+        return "failed"
+    if choice.strip() == "7":
+        return "health"
+    if choice.strip() == "8":
+        return "export"
+    if choice.strip().upper() == "T":
+        return "test_persistence"
+    if choice.strip().upper() == "V":
+        return "validate_runtime"
+    if choice.strip() == "9":
+        return "exit"
+    return "ingest"
+
+
+def render_item_snippet(item: RecallItem) -> str:
+    content = item.content or ""
+    excerpt = content.strip().splitlines()[0] if content.strip() else "(no content)"
+    return f"{item.title} — {excerpt[:120]}"
+
+
+def prompt_review_outcome() -> str:
+    print("Review outcome options:")
+    print(" 1. Correct")
+    print(" 2. Partial")
+    print(" 3. Forgotten")
+    choice = input("Select outcome [1-3] or Enter to skip: ").strip()
+    return {
+        "1": "correct",
+        "2": "partial",
+        "3": "forgotten",
+    }.get(choice, "")
+
+
+def prompt_confidence() -> float:
+    choice = input("Confidence level [1-5] (default 4): ").strip()
+    try:
+        value = int(choice)
+        return max(1, min(5, value)) / 5.0
+    except Exception:
+        return 0.8
+
+
+def print_items(items: List[RecallItem], max_items: int = 20) -> None:
+    if not items:
+        print("No matching items found.")
+        return
+    for index, item in enumerate(items[:max_items], start=1):
+        metadata = item.revision_metadata or {}
+        print(f"{index}. {render_item_snippet(item)}")
+        print(f"   state={metadata.get('state', 'NEW')} subject={item.subject or 'N/A'} tags={item.tags} next={metadata.get('next_review_at')}")
+
+
+def search_memory(existing_items: List[RecallItem], retrieval_engine: RetrievalEngine) -> None:
+    print("Search memory:")
+    keyword = input("Keyword query (optional): ").strip() or None
+    subject = input("Subject filter (optional): ").strip() or None
+    tag_input = input("Tag filter(s) comma-separated (optional): ").strip()
+    tags = [tag.strip() for tag in tag_input.split(",") if tag.strip()] if tag_input else None
+    state = input("Revision state filter (optional): ").strip() or None
+
+    results = retrieval_engine.search_items(
+        existing_items,
+        keyword=keyword,
+        tags=tags,
+        subject=subject,
+        state=state,
+    )
+    print(f"Found {len(results)} matching item(s):")
+    print_items(results)
+
+
+def review_items(items: List[RecallItem], existing_items: List[RecallItem], revision_engine: RevisionEngine, title: str) -> None:
+    if not items:
+        print(f"No {title.lower()} items to review.")
+        return
+    print(f"{len(items)} {title.lower()} item(s):\n")
+    for item in items:
+        print(f"- {render_item_snippet(item)}")
+        metadata = item.revision_metadata or {}
+        print(f"   state={metadata.get('state', 'NEW')} next_review_at={metadata.get('next_review_at')} interval={metadata.get('interval_days', 0)}d")
+        outcome = prompt_review_outcome()
+        if not outcome:
+            print("  Skipping item")
+            continue
+        confidence = prompt_confidence()
+        reviewed = revision_engine.review_item(item, outcome=outcome, confidence=confidence)
+        existing_items[:] = [reviewed if existing is item else existing for existing in existing_items]
+        print(f"  Reviewed: state={reviewed.revision_metadata.get('state')} interval={reviewed.revision_metadata.get('interval_days')}d next={reviewed.revision_metadata.get('next_review_at')}")
+        print()
+
+
+def review_due_items(existing_items: List[RecallItem], retrieval_engine: RetrievalEngine, revision_engine: RevisionEngine) -> None:
+    due_items = retrieval_engine.review_due(existing_items)
+    review_items(due_items, existing_items, revision_engine, "Due")
+
+
+def review_weak_items(existing_items: List[RecallItem], retrieval_engine: RetrievalEngine, revision_engine: RevisionEngine) -> None:
+    weak_items = retrieval_engine.review_weak(existing_items)
+    review_items(weak_items, existing_items, revision_engine, "Weak")
+
+
+def recent_items(existing_items: List[RecallItem], retrieval_engine: RetrievalEngine) -> None:
+    recent = retrieval_engine.recent_items(existing_items)
+    print(f"Most recent {len(recent)} item(s):")
+    print_items(recent)
+
+
+def failed_items(existing_items: List[RecallItem], retrieval_engine: RetrievalEngine) -> None:
+    failed = retrieval_engine.failed_items(existing_items)
+    print(f"Failed or forgotten {len(failed)} item(s):")
+    print_items(failed)
+
+
+def memory_health(existing_items: List[RecallItem], retrieval_engine: RetrievalEngine) -> None:
+    metrics = retrieval_engine.memory_health(existing_items)
+    print("Memory health metrics:")
+    for key, value in metrics.items():
+        print(f"  {key}: {value}")
+
+
+def export_snapshot(existing_items: List[RecallItem], retrieval_engine: RetrievalEngine) -> None:
+    path = input("Export snapshot path (default ./drecall_snapshot.json): ").strip() or "./drecall_snapshot.json"
+    output_path = retrieval_engine.snapshot_items(existing_items, path)
+    print(f"Snapshot exported to {output_path}")
+
+
+def run_test_persistence(notion_sink: Any, retrieval_engine: RetrievalEngine, existing_items: List[RecallItem]) -> None:
+    print("Running persistence test (creates a temporary test page)...")
+    if notion_sink is None or not notion_sink.client:
+        print("Notion sink not configured. Enable Notion and provide credentials to run this test.")
+        return
+
+    # Build a small test recall item
+    alias = next(iter(notion_sink.datasource_map.keys())) if notion_sink.datasource_map else None
+    resolved_database_id = notion_sink.resolve_database_id(alias) if alias else None
+    test_item = {
+        "title": "dRecall Persistence Test",
+        "content": "This is a temporary test created by dRecall to validate persistence.",
+        "tags": ["drecall_test"],
+        "datasource_id": alias,
+    }
+
+    ds = resolved_database_id
+    if not ds:
+        print("No datasource configured for Notion sink; aborting test")
+        return
+
+    # Safety: require explicit confirmation
+    resp = input(f"Create a test page in datasource '{ds}'? Type YES to confirm: ")
+    if resp.strip().upper() != "YES":
+        print("Test aborted by user")
+        return
+
+    created = NotionManager.safe_create_test_page(notion_sink.client, ds, test_item)
+    if not created:
+        print("Test page creation failed — see logs")
+        return
+
+    page_id = created.get("id")
+    print(f"Test page created: id={page_id}")
+    # Attempt retrieval via sink
+    try:
+        retrieved = notion_sink.retrieve_page(page_id)
+        print("Retrieved page successfully. Title preview:", retrieved.get("properties", {}).get("Title", {}))
+    except Exception as exc:
+        print("Failed to retrieve test page:", exc)
+    print("Persistence test completed — you may delete the test page manually.")
+
+
+def run_validate_runtime(
+    ingestion: IngestionEngine,
+    notion_sink: Any,
+    existing_items: List[RecallItem],
+    retrieval_engine: RetrievalEngine,
+    revision_engine: RevisionEngine,
+    runtime_loader: RuntimeLoader,
+    session_manager: SessionManager,
+) -> None:
+    print("Running full lifecycle validation (ingest -> persist -> reload -> retrieve -> review)")
+    samples = [
+        ("Distichiasis vs Trichiasis", "Difference between distichiasis and trichiasis"),
+        ("Scurvy mechanism", "Scurvy collagen defect mechanism: role of vitamin C in hydroxylation"),
+        ("Tail recursion", "Tail recursion explanation and python example"),
+    ]
+
+    created_pages = []
+    for title, text in samples:
+        try:
+            item = ingestion.ingest_text(
+                text=text,
+                title=title,
+                source=next(iter(notion_sink.datasource_map.keys())) if notion_sink and notion_sink.datasource_map else None,
+            )
+        except Exception as exc:
+            print(f"Ingestion failed for {title}: {exc}")
+            continue
+
+        if notion_sink and notion_sink.client:
+            ds = next(iter(notion_sink.datasource_map.keys()))
+            payload = item.to_dict()
+            payload["datasource_id"] = ds
+            try:
+                res = notion_sink.create(payload)
+                item = item.model_copy(update={"id": res.id})
+                created_pages.append(res.id)
+                print(f"Persisted {title} -> page {res.id}")
+            except Exception as exc:
+                print(f"Persistence failed for {title}: {exc}")
+                continue
+
+        existing_items.append(item)
+        session_manager.record_item(item)
+
+    print("Verifying local snapshot and retrieval continuity")
+    try:
+        reloaded_state = runtime_loader.load_runtime(load_from_notion=False, force_refresh=True)
+        print(f"Reloaded {len(reloaded_state.items)} item(s) from local snapshot")
+    except Exception as exc:
+        print(f"Snapshot reload failed: {exc}")
+        reloaded_state = None
+
+    if retrieval_engine:
+        recent = retrieval_engine.recent_items(existing_items)
+        print(f"Recent items after lifecycle test: {len(recent)}")
+        if reloaded_state is not None:
+            reloaded_recent = retrieval_engine.recent_items(reloaded_state.items)
+            print(f"Recent items after reload: {len(reloaded_recent)}")
+
+    print("Lifecycle validation completed. Created pages:", created_pages)
+
+
 def main() -> None:
     # Startup banner
     os.system("cls" if os.name == "nt" else "clear")
-    print("=== dRecall Terminal Ingestion (Phase 7D) ===\n")
+    print("=== dRecall Terminal Ingestion (Phase 8C) ===\n")
 
     # Initialize components
     LOG.info("Initializing components...")
@@ -134,36 +402,110 @@ def main() -> None:
         provider_name = "mock"
         dry_run = True
 
+    LOG.info("Selected provider: %s", provider.__class__.__name__)
     ingestion = IngestionEngine(provider=provider)
     normalizer = Normalizer()
     validator = Validator()
     revision_engine = RevisionEngine()
+    retrieval_engine = None
 
     # Initialize Notion sink if available and environment provides token
     notion_client = None
     notion_sink = None
     datasource_map = {}
-    if NotionSink is not None:
-        try:
-            # optional: create a Notion client if env is configured
-            from notion_client import Client as NotionClient  # type: ignore
+    # Notion environment detection and safe initialization
+    env_status = NotionManager.detect_env()
+    alias_key = "notion_default"
+    resolved_target_id = resolve_datasource_alias(alias_key, env_status)
+    datasource_map = {}
 
-            token = os.environ.get("NOTION_TOKEN")
-            if token:
-                notion_client = NotionClient(auth=token)
-                datasource_map = {"notion_default": {}}
-                notion_sink = NotionSink(client=notion_client, datasource_map=datasource_map)
+    print("Persistence:", "ENABLED" if env_status.enabled else "DISABLED")
+    print("Notion token:", "present" if env_status.token_present else "missing")
+    print("Datasource alias:", alias_key)
+    print("Resolved target ID:", resolved_target_id or "(missing)")
+    print("Datasource resolution:", "VERIFIED" if resolved_target_id else "MISSING")
+
+    if NotionSink is not None and env_status.enabled and not resolved_target_id:
+        print("Notion persistence disabled: no database ID could be resolved for alias",
+              alias_key)
+        env_status.enabled = False
+
+    # If token present but ENABLE_NOTION not set, offer to enable for this session
+    if NotionSink is not None and not env_status.enabled and env_status.token_present:
+        resp = input("Notion token detected but persistence disabled. Enable Notion for this session? Type YES to enable: ")
+        if resp.strip().upper() == "YES":
+            env_status.enabled = True
+
+    if NotionSink is not None and env_status.enabled:
+        notion_client = NotionManager.init_client()
+        if notion_client:
+            # Use a stable alias internally and resolve to a concrete database UUID.
+            if resolved_target_id:
+                info = None
+                title_field = "Title"
+                resolved_database_id = None
+                datasource_entry: Dict[str, Any] = {"title": title_field}
+
+                # Try interpreting the resolved id as a database first, then fall back to datasource.
+                if env_status.database_id and resolved_target_id == env_status.database_id:
+                    info = NotionManager.validate_database_access(notion_client, resolved_target_id)
+                    if info.get("accessible"):
+                        resolved_database_id = resolved_target_id
+                        datasource_entry["database_id"] = resolved_database_id
+                if not info or not info.get("accessible"):
+                    if env_status.datasource_id:
+                        if not info or resolved_target_id == env_status.datasource_id:
+                            info = NotionManager.validate_datasource_access(notion_client, env_status.datasource_id)
+                            if info.get("accessible"):
+                                resolved_database_id = info.get("database_id")
+                                datasource_entry["data_source_id"] = env_status.datasource_id
+                                if resolved_database_id:
+                                    datasource_entry["database_id"] = resolved_database_id
+
+                if info and info.get("accessible"):
+                    title = info.get("title")
+                    title_field = NotionManager.inspect_schema(info.get("properties", {}))["mapping"].get("title") or "Title"
+                    datasource_entry["title"] = title_field
+                    datasource_map = {alias_key: datasource_entry}
+                    sandbox_ok = NotionManager.is_sandbox_name(title)
+                    print("Database access:", "VERIFIED")
+                    print(f"Database title: {title}")
+                    print(f"Schema properties: {len(info.get('properties', {}))}")
+                    print(f"Mapped title field: {title_field}")
+                    if not sandbox_ok:
+                        resp = input("Warning: database name does not look like a sandbox. Type YES to proceed: ")
+                        if resp.strip().upper() != "YES":
+                            print("Notion persistence aborted by user (sandbox check)")
+                            notion_client = None
+                        else:
+                            print("Proceeding with Notion persistence as requested")
+                else:
+                    print("Database access: FAILED —", info.get("error") if info else "unknown error")
+                    notion_client = None
             else:
-                # Allow operating without a configured Notion client
-                notion_sink = NotionSink(client=None, datasource_map=datasource_map)
-        except Exception:
+                notion_client = None
+
+            notion_sink = NotionSink(client=notion_client, datasource_map=datasource_map)
+        else:
+            print("Notion client initialization failed — persistence disabled")
             notion_sink = NotionSink(client=None, datasource_map=datasource_map)
+    else:
+        # Not configured or disabled
+        notion_sink = NotionSink(client=None, datasource_map=datasource_map) if NotionSink is not None else None
+
+    # revision engine persistence support
+    revision_engine = RevisionEngine(persistence_sink=notion_sink)
+    retrieval_engine = RetrievalEngine(persistence_sink=notion_sink)
+
+    runtime_loader = RuntimeLoader(persistence_sink=notion_sink)
+    runtime_state = runtime_loader.load_runtime(load_from_notion=bool(settings.enable_notion))
+    session_manager = SessionManager(runtime_state=runtime_state, snapshot_path=runtime_loader.snapshot_path)
 
     # Duplicate detector
     detector = HybridDuplicateDetector()
 
     # In-memory existing items (runtime cache) to support pre-ingest checks
-    existing_items: List[Dict[str, Any]] = []
+    existing_items: List[RecallItem] = runtime_state.items
 
     # Datasource selection
     selected_datasource = select_datasource(default="notion_default", datasource_map=datasource_map)
@@ -180,8 +522,60 @@ def main() -> None:
         print(f"Active model: {model_info.get('model')}")
     print(f"Dry-run mode: {dry_run}\n")
 
+    runtime_summary = runtime_state.summary()
+    print("=== Runtime memory summary ===")
+    print(f"Loaded items: {runtime_summary['total_items']}")
+    print(f"Due review items: {runtime_summary['due_items']}")
+    print(f"Weak memory items: {runtime_summary['weak_items']}")
+    print(f"Unique tags: {runtime_summary['tag_count']}")
+    print(f"Unique subjects: {runtime_summary['subject_count']}")
+    print(f"Last sync: {runtime_summary['last_sync_at']}")
+    print(f"Sync status: {runtime_summary['sync_status']}\n")
+
     # Main loop
     while True:
+        workflow = select_workflow()
+        if workflow == "exit":
+            print("Exiting dRecall. Goodbye.")
+            break
+        if workflow == "search":
+            search_memory(existing_items, retrieval_engine)
+            continue
+        if workflow == "review_due":
+            review_due_items(existing_items, retrieval_engine, revision_engine)
+            session_manager.record_items(existing_items)
+            continue
+        if workflow == "review_weak":
+            review_weak_items(existing_items, retrieval_engine, revision_engine)
+            session_manager.record_items(existing_items)
+            continue
+        if workflow == "recent":
+            recent_items(existing_items, retrieval_engine)
+            continue
+        if workflow == "failed":
+            failed_items(existing_items, retrieval_engine)
+            continue
+        if workflow == "health":
+            memory_health(existing_items, retrieval_engine)
+            continue
+        if workflow == "export":
+            export_snapshot(existing_items, retrieval_engine)
+            continue
+        if workflow == "test_persistence":
+            run_test_persistence(notion_sink, retrieval_engine, existing_items)
+            continue
+        if workflow == "validate_runtime":
+            run_validate_runtime(
+                ingestion,
+                notion_sink,
+                existing_items,
+                retrieval_engine,
+                revision_engine,
+                runtime_loader,
+                session_manager,
+            )
+            continue
+
         user_input = multiline_input(prompt="Paste question / note")
         if user_input == "__EXIT__":
             print("Exiting ingestion loop. Goodbye.")
@@ -251,12 +645,13 @@ def main() -> None:
                     continue
 
             # Prepare canonical dict for persistence (do NOT mutate original)
-            item_dict = recall_item.to_dict()
+            scheduled_item = revision_engine.schedule_item(recall_item)
+            item_dict = scheduled_item.to_dict()
             item_dict["datasource_id"] = selected_datasource
 
             # Duplicate detection (pre-ingest)
             LOG.info("Running duplicate detection")
-            dup_result = detector.find_duplicates(candidate=item_dict, existing=existing_items)
+            dup_result = detector.find_duplicates(candidate=item_dict, existing=[item.to_dict() for item in existing_items])
             # If duplicate backend recommends BLOCK, honor it
             from core.contracts.duplicate_contracts import RecommendedAction
 
@@ -272,21 +667,18 @@ def main() -> None:
             if notion_sink is None or not notion_sink.client:
                 LOG.info("Notion sink not configured — skipping persistence (dry-run)")
                 print("Dry-run: ingestion complete (no persistence)")
-                # schedule revision hook locally
-                LOG.info("Queuing for revision (local)")
-                # simple in-memory revision queue placeholder
-                # revision_engine.expand_item would be scheduled here in production
-                existing_items.append({"id": None, "title": recall_item.title, "content": recall_item.content, "datasource_id": selected_datasource})
+                existing_items.append(scheduled_item)
+                session_manager.record_item(scheduled_item)
                 continue
 
             LOG.info("Persisting to Notion sink")
             try:
                 persist_res = notion_sink.create(item_dict)
                 print(f"Persisted: page_id={persist_res.id}")
-                # update runtime existing items
-                existing_items.append({"id": persist_res.id, "title": recall_item.title, "content": recall_item.content, "datasource_id": selected_datasource})
-                # schedule revision (placeholder)
-                LOG.info("Scheduling revision hook for item %s", persist_res.id)
+                scheduled_item = scheduled_item.model_copy(update={"id": persist_res.id})
+                existing_items.append(scheduled_item)
+                session_manager.record_item(scheduled_item)
+                LOG.info("Scheduled revision for persisted item %s", persist_res.id)
             except Exception as exc:
                 LOG.exception("Persistence failed: %s", exc)
                 print("Persistence failed — see logs")
@@ -305,152 +697,3 @@ if __name__ == "__main__":
     except Exception as e:
         LOG.exception("Fatal error in main: %s", e)
         sys.exit(1)
-"""Main entry point for drecall application.
-
-Orchestrates the initialization, configuration, and execution of the drecall system.
-Demonstrates provider initialization and basic validation.
-"""
-
-import logging
-import sys
-from pathlib import Path
-
-# Add project root to path
-PROJECT_ROOT = Path(__file__).parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-from config import settings
-from core.schemas import RecallItem
-from providers import BaseProvider, GroqProvider, GeminiProvider
-
-# Configure logging from settings once available
-logging.basicConfig(
-    level=getattr(logging, settings.log_level, logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
-
-
-def initialize_providers(settings) -> dict[str, BaseProvider]:
-    """Initialize configured AI providers.
-    
-    Args:
-        settings: Application settings.
-        
-    Returns:
-        Dictionary of initialized provider instances.
-    """
-    providers = {}
-    
-    # Initialize Groq if enabled and configured
-    if settings.is_provider_enabled("groq"):
-        try:
-            groq = GroqProvider(
-                api_key=settings.groq_api_key,
-                model=settings.groq_model,
-                timeout=settings.request_timeout,
-            )
-            providers["groq"] = groq
-            logger.info(f"Initialized Groq provider (model: {settings.groq_model})")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Groq provider: {e}")
-    
-    # Initialize Gemini if enabled and configured
-    if settings.is_provider_enabled("gemini"):
-        try:
-            gemini = GeminiProvider(
-                api_key=settings.gemini_api_key,
-                model=settings.gemini_model,
-                timeout=settings.request_timeout,
-            )
-            providers["gemini"] = gemini
-            logger.info(f"Initialized Gemini provider (model: {settings.gemini_model})")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Gemini provider: {e}")
-    
-    if not providers:
-        logger.warning("No AI providers initialized! Check configuration and API keys.")
-    
-    return providers
-
-
-def validate_providers(providers: dict[str, BaseProvider]) -> bool:
-    """Validate all initialized providers.
-    
-    Args:
-        providers: Dictionary of provider instances.
-        
-    Returns:
-        True if all providers are valid, False otherwise.
-    """
-    logger.info("Validating providers...")
-    all_valid = True
-    
-    for name, provider in providers.items():
-        try:
-            if provider.validate_credentials():
-                info = provider.get_model_info()
-                logger.info(f"✓ {name} provider validated (model: {info['model']})")
-            else:
-                logger.error(f"✗ {name} provider credentials invalid")
-                all_valid = False
-        except Exception as e:
-            logger.error(f"✗ {name} provider validation failed: {e}")
-            all_valid = False
-    
-    return all_valid
-
-
-def main() -> int:
-    """Main application entry point.
-    
-    Returns:
-        Exit code (0 for success, non-zero for errors).
-    """
-    try:
-        settings.validate_configuration()
-
-        logger.info(f"=" * 60)
-        logger.info(f"Starting {settings.app_name} v{settings.version}")
-        logger.info(f"Environment: {settings.environment}")
-        logger.info(f"Active providers: {settings.get_active_providers()}")
-        logger.info(f"Log level: {settings.log_level}")
-        logger.info(f"=" * 60)
-        
-        # Initialize providers
-        providers = initialize_providers(settings)
-        
-        if not providers:
-            logger.error("No providers available. Configure API keys in .env")
-            return 1
-        
-        # Validate providers
-        # Note: This will attempt actual API calls if providers are configured
-        if not validate_providers(providers):
-            logger.warning("Some providers failed validation (check API keys)")
-        
-        # Demonstrate RecallItem schema
-        demo_item = RecallItem(
-            title="Python List Comprehensions",
-            content="A list comprehension provides a concise way to create lists...",
-            source="coding_notes",
-            template_type="coding",
-            tags=["python", "programming", "syntax"],
-        )
-        logger.info(f"Created sample RecallItem: {demo_item}")
-        logger.debug(f"RecallItem data: {demo_item.to_dict()}")
-        
-        logger.info(f"=" * 60)
-        logger.info("✓ dRecall initialized successfully!")
-        logger.info("Ready for data ingestion and processing.")
-        logger.info(f"=" * 60)
-        
-        return 0
-        
-    except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=settings.debug)
-        return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())

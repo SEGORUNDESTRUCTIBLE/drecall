@@ -26,7 +26,9 @@ class HashBackend:
     def _normalize(self, value: str) -> str:
         if value is None:
             return ""
-        return str(value).strip().lower()
+
+        normalized = str(value).strip().lower()
+        return " ".join(normalized.split())
 
     def hash_item(self, item: Dict[str, any]) -> str:
         pieces = [self._normalize(item.get(f)) for f in self.fields]

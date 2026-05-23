@@ -33,11 +33,19 @@ def test_sequence_matcher_typo_similarity():
 
 def test_metadata_backend_match():
     mb = MetadataBackend()
-    a = make_record("1", "T", "C", dedup_key="dk1", source="s1")
-    b = make_record("2", "T2", "C2", dedup_key="dk1", source="s2")
+    a = make_record("1", "T", "C", duplicate_fingerprint="fp1", source="s1")
+    b = make_record("2", "T2", "C2", duplicate_fingerprint="fp1", source="s2")
     matches = mb.find_matches(a, [b])
     assert len(matches) == 1
-    assert matches[0].metadata['matched_key'] == 'dedup_key'
+    assert matches[0].metadata['matched_key'] == 'duplicate_fingerprint'
+
+
+def test_metadata_backend_source_only_does_not_match():
+    mb = MetadataBackend()
+    a = make_record("1", "T", "C", source="s1")
+    b = make_record("2", "T2", "C2", source="s1")
+    matches = mb.find_matches(a, [b])
+    assert len(matches) == 0
 
 
 def test_hybrid_detector_threshold_tuning():
@@ -46,11 +54,11 @@ def test_hybrid_detector_threshold_tuning():
         make_record("2", "Gamma Delta", "Other content"),
     ]
 
-    candidate = make_record("c", "Alpha Bta", "Some content")
+    candidate = make_record("c", "Alpha Bta", "Different content")
 
     detector = HybridDuplicateDetector(similarity_threshold=0.9)
     result = detector.find_duplicates(candidate, existing)
-    # threshold high -> should not flag
+    # threshold high -> should not flag for similar title only
     assert not result.is_duplicate
 
     detector_low = HybridDuplicateDetector(similarity_threshold=0.75)
@@ -63,5 +71,13 @@ def test_false_positive_resistance():
     existing = [make_record("1", "Completely different", "Unrelated content")]
     candidate = make_record("c", "Near nothing", "Also nothing")
     detector = HybridDuplicateDetector(similarity_threshold=0.6)
+    res = detector.find_duplicates(candidate, existing)
+    assert not res.is_duplicate
+
+
+def test_hybrid_detector_source_does_not_block():
+    existing = [make_record("1", "Difference Between Distichiasis And Trichiasis", "A disorder of eyelash growth", source="notion_default")]
+    candidate = make_record("c", "chromoblastomycosis clinical features", "A fungal infection of skin", source="notion_default")
+    detector = HybridDuplicateDetector(similarity_threshold=0.75)
     res = detector.find_duplicates(candidate, existing)
     assert not res.is_duplicate

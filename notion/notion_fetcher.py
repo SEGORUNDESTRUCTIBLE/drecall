@@ -28,19 +28,45 @@ class NotionFetcher:
             if resolved_database:
                 logger.warning("Legacy NOTION_DATABASE_ID detected; consider migrating to NOTION_DATASOURCE_ID")
 
-    def fetch_pages(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def fetch_pages(self, limit: int = 50, start_cursor: Optional[str] = None) -> Dict[str, Any]:
         if not self.target_id:
             raise ValueError("No database/datasource id configured for fetching pages")
         try:
             if self.datasource_mode:
-                path = f"data_sources/{self.target_id}/query"
-                res = self.client.request("POST", path, json={"page_size": limit})
+                params = {"page_size": limit}
+                if start_cursor:
+                    params["start_cursor"] = start_cursor
+                res = self.client.query_data_source(data_source_id=self.target_id, **params)
             else:
-                res = self.client.query_database(database_id=self.target_id, page_size=limit)
-            return res.get("results", [])
+                params = {"database_id": self.target_id, "page_size": limit}
+                if start_cursor:
+                    params["start_cursor"] = start_cursor
+                try:
+                    res = self.client.query_database(**params)
+                except Exception as exc:
+                    logger.warning("Database query failed, attempting datasource fallback: %s", exc)
+                    data_source_id = self._resolve_data_source_id()
+                    if not data_source_id:
+                        raise
+                    params = {"page_size": limit}
+                    if start_cursor:
+                        params["start_cursor"] = start_cursor
+                    res = self.client.query_data_source(data_source_id=data_source_id, **params)
+            return res
         except Exception:
             logger.exception("Failed to fetch pages from Notion")
-            return []
+            return {"results": []}
+
+    def _resolve_data_source_id(self) -> Optional[str]:
+        try:
+            db = self.client.retrieve_database(database_id=self.target_id)
+            for data_source in db.get("data_sources", []) or []:
+                ds_id = data_source.get("id")
+                if ds_id:
+                    return ds_id
+        except Exception:
+            logger.exception("Failed to resolve data source id for database %s", self.target_id)
+        return None
 
     def fetch_page(self, page_id: str) -> Optional[Dict[str, Any]]:
         try:

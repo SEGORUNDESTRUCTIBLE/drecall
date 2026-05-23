@@ -47,6 +47,30 @@ class Validator:
             if invalid_tags:
                 errors.append("All tags must be non-empty strings.")
 
+        if item.subject is not None and not isinstance(item.subject, str):
+            errors.append("Subject must be a string.")
+
+        if item.system is not None and not isinstance(item.system, str):
+            errors.append("System must be a string.")
+
+        if item.error_type is not None and not isinstance(item.error_type, str):
+            errors.append("Error type must be a string.")
+
+        if item.pattern_type is not None and not isinstance(item.pattern_type, str):
+            errors.append("Pattern type must be a string.")
+
+        if item.difficulty is not None and not isinstance(item.difficulty, str):
+            errors.append("Difficulty must be a string.")
+
+        if item.recall_priority is not None and not isinstance(item.recall_priority, str):
+            errors.append("Recall priority must be a string.")
+
+        if not isinstance(item.revision_metadata, dict):
+            errors.append("Revision metadata must be a dictionary.")
+
+        if item.duplicate_fingerprint is not None and not isinstance(item.duplicate_fingerprint, str):
+            errors.append("Duplicate fingerprint must be a string.")
+
         if not isinstance(item.metadata, dict):
             errors.append("Metadata must be a dictionary.")
 

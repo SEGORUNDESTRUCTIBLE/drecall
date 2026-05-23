@@ -137,7 +137,7 @@ class GeminiProvider(BaseProvider):
             model = genai.GenerativeModel(self.model)
             
             # Extract internal flags
-            expect_json = kwargs.pop("expect_json", True)
+            expect_json = kwargs.pop("expect_json", False)
 
             # Build generation config
             generation_config = {
@@ -156,20 +156,28 @@ class GeminiProvider(BaseProvider):
                 )
 
             response = self._call_with_retries(_call)
-            
-            # Extract response text
-            # Extract response text and enforce JSON when required
+
             result = getattr(response, "text", None)
             if result is None:
-                # try dict like response
                 try:
                     result = response["candidates"][0]["content"][0]["text"]
                 except Exception:
                     result = str(response)
 
+            logger.debug(
+                "Gemini extraction result type=%s",
+                type(result).__name__,
+            )
+
             if expect_json:
                 return self._ensure_json(result)
 
+            if isinstance(result, (dict, list)):
+                return json.dumps(result)
+            if result is None:
+                return ""
+            if not isinstance(result, str):
+                return str(result)
             return result
             
         except TimeoutError as e:

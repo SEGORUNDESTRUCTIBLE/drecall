@@ -74,8 +74,20 @@ class NotionClientWrapper:
     def retrieve_page(self, **kwargs):
         return self._call(self.client.pages.retrieve, **kwargs)
 
+    def retrieve_database(self, database_id: str) -> Any:
+        return self._call(self.client.databases.retrieve, database_id=database_id)
+
     def query_database(self, **kwargs):
-        return self._call(self.client.databases.query, **kwargs)
+        try:
+            return self._call(self.client.databases.query, **kwargs)
+        except AttributeError:
+            database_id = kwargs.pop("database_id", None)
+            if not database_id:
+                raise
+            return self.request("POST", "databases/query", json={"database_id": database_id, **kwargs})
+
+    def query_data_source(self, data_source_id: str, **kwargs) -> Any:
+        return self._call(self.client.data_sources.query, data_source_id=data_source_id, **kwargs)
 
     def search(self, **kwargs):
         return self._call(self.client.search, **kwargs)
@@ -87,8 +99,11 @@ class NotionClientWrapper:
         in older SDK versions. `path` should be the full API path after
         the /v1 prefix, e.g. 'data_sources/{id}/pages'.
         """
+        body = kwargs.pop("json", kwargs.pop("body", None))
+        query = kwargs.pop("query", None)
+        form_data = kwargs.pop("form_data", None)
         try:
-            return self._call(self.client.request, method, path, **kwargs)
+            return self._call(self.client.request, path, method, query=query, body=body, form_data=form_data)
         except AttributeError:
             # Older SDKs may not expose `request`; raise a clear error
             raise RuntimeError("Underlying Notion client does not support low-level request dispatch")

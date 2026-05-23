@@ -1,0 +1,279 @@
+{
+  "pages": [
+    {
+      "id": "369d5193-1010-81ea-95ef-ea80ad2fc186",
+      "title": "Malformed Noisy",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 2,
+      "title_too_short": true,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 1,
+      "blocks_summary": [
+        {
+          "type": "paragraph",
+          "text_snippet": "The input content appears to be incomplete JSON with random symbols and a URL."
+        }
+      ],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 14.0,
+      "first_paragraph_excerpt": "The input content appears to be incomplete JSON with random symbols and a URL.",
+      "study_readability": true
+    },
+    {
+      "id": "369d5193-1010-814b-8e39-ccbe921e4b67",
+      "title": "Duplicate Candidate",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 2,
+      "title_too_short": true,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 1,
+      "blocks_summary": [
+        {
+          "type": "paragraph",
+          "text_snippet": "Explain the difference between HTTP and HTTPS"
+        }
+      ],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 7.0,
+      "first_paragraph_excerpt": "Explain the difference between HTTP and HTTPS",
+      "study_readability": true
+    },
+    {
+      "id": "369d5193-1010-815c-b4d7-d1688dbdc15e",
+      "title": "Weak-memory Concept",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 3,
+      "title_too_short": false,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 1,
+      "blocks_summary": [
+        {
+          "type": "paragraph",
+          "text_snippet": "The concept of weak memory is related to recalling information without sufficient context."
+        }
+      ],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 13.0,
+      "first_paragraph_excerpt": "The concept of weak memory is related to recalling information without sufficient context.",
+      "study_readability": true
+    },
+    {
+      "id": "369d5193-1010-818c-be21-f228b14d021b",
+      "title": "Long Input",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 2,
+      "title_too_short": true,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 1,
+      "blocks_summary": [
+        {
+          "type": "paragraph",
+          "text_snippet": "This is a long test input."
+        }
+      ],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 6.0,
+      "first_paragraph_excerpt": "This is a long test input.",
+      "study_readability": false
+    },
+    {
+      "id": "369d5193-1010-81a7-91fc-cee5539de337",
+      "title": "Short Input",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 2,
+      "title_too_short": true,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 1,
+      "blocks_summary": [
+        {
+          "type": "paragraph",
+          "text_snippet": "Osmosis"
+        }
+      ],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 1.0,
+      "first_paragraph_excerpt": "Osmosis",
+      "study_readability": false
+    },
+    {
+      "id": "369d5193-1010-81fd-90e4-f806dedbf898",
+      "title": "Coding Concept",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 2,
+      "title_too_short": true,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 1,
+      "blocks_summary": [
+        {
+          "type": "paragraph",
+          "text_snippet": "Python list comprehensions provide a powerful and expressive way to create lists from existing data, with a focus on readability and performance"
+        }
+      ],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 22.0,
+      "first_paragraph_excerpt": "Python list comprehensions provide a powerful and expressive way to create lists from existing data, with a focus on readability and performance",
+      "study_readability": true
+    },
+    {
+      "id": "369d5193-1010-81b5-9358-c60342fdf45c",
+      "title": "Medical Concept",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 2,
+      "title_too_short": true,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 1,
+      "blocks_summary": [
+        {
+          "type": "paragraph",
+          "text_snippet": "The pathophysiology of pernicious anemia explained in concise bullet points"
+        }
+      ],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 10.0,
+      "first_paragraph_excerpt": "The pathophysiology of pernicious anemia explained in concise bullet points",
+      "study_readability": true
+    },
+    {
+      "id": "369d5193-1010-81f9-8cda-d0290baa591f",
+      "title": "Live flow test eeef5899-5dee-4dcf-8226-5d921b94ee2e",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 8,
+      "title_too_short": false,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 1,
+      "blocks_summary": [
+        {
+          "type": "paragraph",
+          "text_snippet": "Validation of current Notion sink path"
+        }
+      ],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 6.0,
+      "first_paragraph_excerpt": "Validation of current Notion sink path",
+      "study_readability": true
+    },
+    {
+      "id": "369d5193-1010-8140-a546-ccb517a4a10c",
+      "title": "Test create",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 2,
+      "title_too_short": true,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 1,
+      "blocks_summary": [
+        {
+          "type": "paragraph",
+          "text_snippet": "hello"
+        }
+      ],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 1.0,
+      "first_paragraph_excerpt": "hello",
+      "study_readability": false
+    },
+    {
+      "id": "369d5193-1010-814d-aed3-c3dd89c605a9",
+      "title": "dRecall DB Persistence Test",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 4,
+      "title_too_short": false,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 0,
+      "blocks_summary": [],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_excerpt": "",
+      "study_readability": false
+    },
+    {
+      "id": "369d5193-1010-81aa-9e19-f70aaae68142",
+      "title": "dRecall DataSource Persistence Test",
+      "dedup_key": null,
+      "revision_metadata": {},
+      "title_word_count": 4,
+      "title_too_short": false,
+      "title_malformed": false,
+      "properties": {
+        "Name": "<truncated>"
+      },
+      "noisy_properties": true,
+      "block_count": 0,
+      "blocks_summary": [],
+      "json_blob_found": false,
+      "unicode_issues": false,
+      "avg_words_per_sentence": 0,
+      "first_paragraph_excerpt": "",
+      "study_readability": false
+    }
+  ],
+  "aggregate": {
+    "total_pages": 11,
+    "issues": {
+      "malformed_title": 0,
+      "missing_revision_metadata": 11,
+      "json_blobs": 11,
+      "noisy_properties": 0,
+      "unicode_issues": 0
+    }
+  }
+}

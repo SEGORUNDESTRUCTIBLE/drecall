@@ -10,10 +10,12 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .mappers import TemplateRegistry
 from .normalizers import Normalizer
 from .prompt_builder import PromptBuilder
 from .schemas import RecallItem
 from .validators import Validator
+from .parsing.json_sanitizer import sanitize_and_parse
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,7 @@ class IngestionEngine:
         validator: Optional[Validator] = None,
         normalizer: Optional[Normalizer] = None,
         provider: Optional[Any] = None,
+        mapper: Optional[Any] = None,
         templates_root: Optional[Path] = None,
     ) -> None:
         self.template_type = template_type
@@ -76,6 +79,7 @@ class IngestionEngine:
             if prompt_builder is not None
             else PromptBuilder(template_type=template_type, templates_root=templates_root)
         )
+        self.mapper = mapper or TemplateRegistry.get_mapper(template_type)
 
     def ingest_text(
         self,
@@ -116,23 +120,102 @@ class IngestionEngine:
             extra_note="dry-run ingestion",
         )
 
-        self._log_stage("Mock provider response")
-        provider_output = self.provider.generate(prompt)
+        provider_name = self.provider.__class__.__name__
+        self._log_stage(f"Provider response from {provider_name}")
+        # Prefer provider-native JSON output when supported (e.g., Groq 'expect_json').
+        provider_output = None
+        try:
+            try:
+                provider_output = self.provider.generate(prompt, expect_json=True)
+            except TypeError:
+                # Provider does not accept expect_json flag; fall back.
+                provider_output = self.provider.generate(prompt)
+        except Exception as exc:
+            logger.error("Provider generation failed: %s", exc)
+            raise
+        # Normalize provider output into parsed JSON if possible, with sanitization
+        parsed = None
+        sanitized_preview = None
 
-        self._log_stage("Structured JSON parsing")
-        valid_response, structured_data, error_message = self.validator.validate_provider_response(provider_output)
-        if not valid_response:
-            raise ValueError(f"Provider response validation failed: {error_message}")
+        # If provider returned native dict/list, use it directly
+        if isinstance(provider_output, (dict, list)):
+            parsed = provider_output
+            sanitized_preview = json.dumps(provider_output)
+
+        # Otherwise attempt sanitize-and-parse from string
+        if parsed is None:
+            raw_text = provider_output if isinstance(provider_output, str) else str(provider_output)
+            logger.debug("[IngestionEngine] provider raw preview=%s", (raw_text or '')[:300].replace('\n', ' '))
+            parsed, sanitized_preview = sanitize_and_parse(raw_text)
+
+        # If parsing still failed, attempt a single recovery prompt to the provider
+        if parsed is None:
+            logger.warning("[IngestionEngine] initial JSON parse failed, attempting recovery prompt")
+            recovery_instruction = "Return ONLY valid JSON matching the schema. Do not include any markdown, code fences, or explanation."
+            recovery_prompt = self.prompt_builder.build_prompt(
+                RecallItem(
+                    title=normalized_title,
+                    content=normalized_text,
+                    source=normalized_source,
+                    template_type=selected_template,
+                    tags=normalized_tags,
+                ),
+                instruction=recovery_instruction,
+                extra_note="recovery attempt",
+            )
+            try:
+                try:
+                    recovery_output = self.provider.generate(recovery_prompt, expect_json=True)
+                except TypeError:
+                    recovery_output = self.provider.generate(recovery_prompt)
+            except Exception as exc:
+                logger.error("Provider recovery attempt failed: %s", exc)
+                raise RuntimeError("Provider recovery attempt failed") from exc
+
+            if isinstance(recovery_output, (dict, list)):
+                parsed = recovery_output
+                sanitized_preview = json.dumps(recovery_output)
+            else:
+                parsed, sanitized_preview = sanitize_and_parse(str(recovery_output))
+
+        logger.debug("[IngestionEngine] sanitized preview=%s", (sanitized_preview or '')[:300].replace('\n', ' '))
+
+        # Final validation of parsed provider data
+        if parsed is None:
+            raise ValueError("Provider response is not valid JSON after sanitization and recovery")
+
+        # Ensure structured data is valid according to existing validators
+        valid_response, error_message = True, None
+        # Validator expects raw string; reuse validate_structured_json for parsed data
+        is_structured_valid, errors = self.validator.validate_structured_json(parsed)
+        if not is_structured_valid:
+            raise ValueError(f"Provider response validation failed: {'; '.join(errors)}")
+
+        structured_data = parsed
+
+        self._log_stage("RecallItem mapping")
+        if isinstance(structured_data, list):
+            structured_data = {"items": structured_data}
+
+        if not structured_data.get("title"):
+            structured_data["title"] = normalized_title
+
+        if normalized_tags and not structured_data.get("tags"):
+            structured_data["tags"] = normalized_tags
+
+        structured_data["_fallback_content"] = normalized_text
+
+        if not any(key in structured_data for key in ["content", "summary", "notes", "explanation"]):
+            structured_data["content"] = normalized_text
+
+        self.mapper = TemplateRegistry.get_mapper(selected_template)
+        recall_item = self.mapper.map(
+            structured_data,
+            source=normalized_source,
+            template_type=selected_template,
+        )
 
         self._log_stage("RecallItem validation")
-        recall_item = self._build_recall_item(
-            title=normalized_title,
-            content=normalized_text,
-            source=normalized_source,
-            tags=normalized_tags,
-            template_type=selected_template,
-            provider_payload=structured_data,
-        )
         is_valid, errors = self.validator.validate_recall_item(recall_item)
         if not is_valid:
             raise ValueError(f"RecallItem validation failed: {errors}")
@@ -221,6 +304,12 @@ class IngestionEngine:
             "content": self.normalizer.normalize_text(item.content),
             "source": item.source.strip() if item.source else None,
             "tags": self.normalizer.normalize_tags(item.tags),
+            "subject": self.normalizer.normalize_subject(item.subject),
+            "system": self.normalizer.normalize_system(item.system),
+            "error_type": self.normalizer.normalize_error_type(item.error_type),
+            "pattern_type": self.normalizer.normalize_pattern_type(item.pattern_type),
+            "difficulty": self.normalizer.normalize_difficulty(item.difficulty),
+            "recall_priority": self.normalizer.normalize_priority(item.recall_priority),
             "metadata": cleaned_metadata,
         }
         updated = item.model_copy(update=normalized_fields)

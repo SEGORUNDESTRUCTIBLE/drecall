@@ -1,0 +1,15 @@
+{
+  "db_id": "368d5193-1010-801d-bf51-cef8fa82451c",
+  "created_or_updated_properties": [
+    "State",
+    "Next Review",
+    "Last Reviewed",
+    "Recall Priority",
+    "Weak Memory",
+    "Difficulty"
+  ],
+  "modified_pages_count": 0,
+  "modified_pages": [],
+  "verification_sample": [],
+  "errors": []
+}

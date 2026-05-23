@@ -18,6 +18,8 @@ from .ingestion_engine import IngestionEngine
 from .normalizers import Normalizer
 from .prompt_builder import PromptBuilder
 from .revision_engine import RevisionEngine
+from .retrieval import RetrievalEngine
+from .runtime import RuntimeLoader, SessionManager, RuntimeState
 from .schemas import ProcessingResult, ProviderResponse, RecallItem
 from .validators import Validator
 
@@ -31,4 +33,8 @@ __all__ = [
     "IngestionEngine",
     "DuplicateDetector",
     "RevisionEngine",
+    "RetrievalEngine",
+    "RuntimeLoader",
+    "SessionManager",
+    "RuntimeState",
 ]

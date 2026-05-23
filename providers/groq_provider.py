@@ -150,7 +150,7 @@ class GroqProvider(BaseProvider):
             logger.debug(f"Calling Groq API with model {self.model}")
             
             # Extract internal flags (do not forward to API)
-            expect_json = kwargs.pop("expect_json", True)
+            expect_json = kwargs.pop("expect_json", False)
 
             # Build request parameters
             request_params = {
@@ -171,29 +171,45 @@ class GroqProvider(BaseProvider):
                 )
 
             response = self._call_with_retries(_call)
-            
+
             # Extract response text
-            # Extract response text safely
-            raw = getattr(response, "choices", None)
-            if not raw:
-                raise RuntimeError("Empty response from Groq API")
-            # support both dict-like and object responses
-            try:
-                # response.choices[0].message.content or dict path
-                result = response.choices[0].message.content
-            except Exception:
+            raw_choices = getattr(response, "choices", None)
+            if raw_choices is None and isinstance(response, dict):
+                raw_choices = response.get("choices")
+
+            result = None
+            if raw_choices:
+                try:
+                    result = raw_choices[0].message.content
+                except Exception:
+                    try:
+                        result = raw_choices[0].get("message", {}).get("content")
+                    except Exception:
+                        result = None
+
+            if result is None:
                 try:
                     result = response[0]
                 except Exception:
                     result = str(response)
 
-            # sanitize and enforce JSON when requested
+            if result is None:
+                raise RuntimeError("Empty response from Groq API")
+
+            logger.debug(
+                "Groq extraction result type=%s",
+                type(result).__name__,
+            )
+
             if expect_json:
                 return self._ensure_json(result)
 
-            return result
-            logger.debug(f"Groq API returned {len(result)} characters")
-            
+            if isinstance(result, (dict, list)):
+                return json.dumps(result)
+            if result is None:
+                return ""
+            if not isinstance(result, str):
+                return str(result)
             return result
             
         except TimeoutError as e:

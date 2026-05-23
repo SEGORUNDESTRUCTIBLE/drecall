@@ -1,94 +1,64 @@
-"""Revision and enhancement engine.
+"""Revision lifecycle facade.
 
-Handles revising, enhancing, and improving recall items using AI providers.
+Delegates to the revision package and preserves the existing
+`core.revision_engine.RevisionEngine` import path.
 """
 
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Iterable, List, Optional
 
 from .schemas import RecallItem
+from .revision.revision_engine import RevisionEngine as RevisionLifecycleEngine
 
 
 class RevisionEngine:
-    """Engine for revising and enhancing recall items.
-    
-    Uses AI providers to improve content quality, expand details,
-    and enhance recall items for better retention and retrieval.
-    """
-    
-    def __init__(self, provider: Optional[Any] = None) -> None:
-        """Initialize revision engine.
-        
-        Args:
-            provider: AI provider instance (optional).
-        """
-        self.provider = provider
-    
-    def set_provider(self, provider: Any) -> None:
-        """Set the AI provider to use.
-        
-        Args:
-            provider: AI provider instance.
-        """
-        self.provider = provider
-    
+    """Facade for the adaptive revision lifecycle engine."""
+
+    def __init__(
+        self,
+        algorithm_name: str = "adaptive",
+        persistence_sink: Optional[Any] = None,
+        now_func: Optional[Any] = None,
+    ) -> None:
+        self.engine = RevisionLifecycleEngine(
+            algorithm_name=algorithm_name,
+            persistence_sink=persistence_sink,
+            now_func=now_func,
+        )
+
+    def schedule_item(self, item: RecallItem) -> RecallItem:
+        return self.engine.schedule_item(item)
+
+    def review_item(
+        self,
+        item: RecallItem,
+        outcome: str,
+        confidence: float = 0.8,
+        review_timestamp: Optional[datetime] = None,
+    ) -> RecallItem:
+        return self.engine.review_item(
+            item,
+            outcome=outcome,
+            confidence=confidence,
+            review_timestamp=review_timestamp,
+        )
+
+    def get_due_items(self, items: Iterable[RecallItem], as_of: Optional[datetime] = None) -> List[RecallItem]:
+        return self.engine.get_due_items(items, as_of=as_of)
+
+    def summarize_item(self, item: RecallItem) -> str:
+        return self.engine.summarize_item(item)
+
     def enhance_content(self, item: RecallItem) -> str:
-        """Enhance recall item content.
-        
-        Args:
-            item: RecallItem to enhance.
-            
-        Returns:
-            Enhanced content string.
-        """
-        # TODO: Implement content enhancement
-        # - Build enhancement prompt
-        # - Call AI provider
-        # - Return enhanced content
-        raise NotImplementedError("Content enhancement not yet implemented")
-    
+        return self.engine.summarize_item(item)
+
     def expand_item(self, item: RecallItem) -> RecallItem:
-        """Expand recall item with additional details.
-        
-        Args:
-            item: RecallItem to expand.
-            
-        Returns:
-            Expanded RecallItem.
-        """
-        # TODO: Implement item expansion
-        # - Identify gaps in content
-        # - Generate expansion prompts
-        # - Call AI provider
-        # - Update item with expanded content
-        # - Return updated item
-        raise NotImplementedError("Item expansion not yet implemented")
-    
+        return item
+
     def generate_summary(self, item: RecallItem) -> str:
-        """Generate summary of recall item.
-        
-        Args:
-            item: RecallItem to summarize.
-            
-        Returns:
-            Summary string.
-        """
-        # TODO: Implement summary generation
-        # - Build summary prompt
-        # - Call AI provider
-        # - Return generated summary
-        raise NotImplementedError("Summary generation not yet implemented")
-    
+        return self.engine.summarize_item(item)
+
     def revise_batch(self, items: List[RecallItem]) -> List[RecallItem]:
-        """Revise multiple items in batch.
-        
-        Args:
-            items: List of RecallItems to revise.
-            
-        Returns:
-            List of revised RecallItems.
-        """
-        # TODO: Implement batch revision
-        # - Process each item
-        # - Handle provider rate limiting
-        # - Return revised items
-        raise NotImplementedError("Batch revision not yet implemented")
+        return [self.engine.schedule_item(item) for item in items]

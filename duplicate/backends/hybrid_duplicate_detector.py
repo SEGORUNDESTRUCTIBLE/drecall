@@ -39,10 +39,10 @@ class HybridDuplicateDetector(DuplicateDetectorContract):
         similarity_threshold: float = 0.8,
     ) -> None:
         self.hash_backend = HashBackend(fields=tuple(hash_fields) if hash_fields else ('title', 'content'))
-        self.meta_backend = MetadataBackend(keys=tuple(metadata_keys) if metadata_keys else ('dedup_key', 'source', 'datasource_id'))
+        self.meta_backend = MetadataBackend(keys=tuple(metadata_keys) if metadata_keys else ('duplicate_fingerprint',))
         self.seq_backend = SequenceMatcherBackend()
-        # Default to title-only sequence matching for deterministic behavior
-        self.seq_fields = tuple(seq_fields) if seq_fields else ('title',)
+        # Compare both title and content for more semantically meaningful scoring
+        self.seq_fields = tuple(seq_fields) if seq_fields else ('title', 'content')
         self.similarity_threshold = similarity_threshold
         # small hysteresis margin to avoid borderline false-positives
         self.hysteresis_margin = 0.05

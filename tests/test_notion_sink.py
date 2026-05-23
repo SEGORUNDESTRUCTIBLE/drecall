@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 from notion.notion_sink import (
     NotionSink,
@@ -33,6 +33,20 @@ def test_create_page_success():
     assert res.id == "page_1"
     assert "url" in res.metadata
     client.pages.create.assert_called_once()
+
+
+def test_create_page_resolves_database_alias():
+    client = make_mock_client()
+    client.pages.create.return_value = {"id": "page_42", "url": "https://notion/page_42"}
+
+    sink = NotionSink(client=client, datasource_map={"notion_default": {"database_id": "db_42"}}, backoff_factor=0)
+
+    item = {"title": "Alias Test", "content": "Body", "datasource_id": "notion_default", "dedup_key": "dk_alias"}
+
+    res = sink.create(item)
+
+    assert res.id == "page_42"
+    client.pages.create.assert_called_once_with(parent={"database_id": "db_42"}, properties=ANY, children=ANY)
 
 
 def test_retrieve_page():
@@ -97,3 +111,9 @@ def test_idempotency_duplicate_detected():
 
     with pytest.raises(DuplicatePersistenceError):
         sink.create(item)
+
+def test_property_mapper_uses_mapped_title_field():
+    mapper = DefaultPropertyMapper(mapping={"ds1": {"title": "Name"}})
+    props = mapper.map_properties({"title": "Test", "content": "Body"}, datasource_id="ds1")
+    assert "Name" in props
+    assert props["Name"]["title"][0]["text"]["content"] == "Test"

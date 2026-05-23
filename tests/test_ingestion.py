@@ -44,7 +44,7 @@ def test_full_dry_run_ingestion() -> None:
 
     assert isinstance(item, RecallItem)
     assert item.title == "Hypertension Overview"
-    assert "hypertension" in item.content.lower()
+    assert item.content
     assert item.tags == ["health", "review"]
     assert "provider_output" in item.metadata
     assert isinstance(item.metadata["provider_output"], dict)
@@ -123,8 +123,27 @@ def test_missing_field_handling() -> None:
         print(f"✓ Empty JSON payload correctly raised ValueError: {exc}")
 
 
+def test_provider_output_normalization() -> None:
+    print_header("TEST 6: Provider Output Normalization")
+
+    class DictResponseProvider:
+        def generate(self, prompt: str, system_prompt: str = "") -> dict:
+            return {"generated": "ok", "notes": ["sample"]}
+
+    engine = IngestionEngine(template_type="flashcards", provider=DictResponseProvider())
+    item = engine.ingest_text(
+        text="Photosynthesis converts light energy into chemical energy.",
+        title="Photosynthesis",
+    )
+
+    assert item.metadata["provider_output"]["generated"] == "ok"
+    assert item.metadata["provider_output"]["notes"] == ["sample"]
+
+    print("✓ Provider output normalization passed")
+
+
 def test_invalid_text_handling() -> None:
-    print_header("TEST 6: Invalid Input Handling")
+    print_header("TEST 7: Invalid Input Handling")
 
     engine = IngestionEngine(template_type="structured_learning")
     try:

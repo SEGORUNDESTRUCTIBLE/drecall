@@ -208,7 +208,38 @@ class PromptBuilder:
         variables = self._build_context(item, context)
         variables["instruction"] = instruction
 
-        return self.template.render(variables)
+        rendered = self.template.render(variables)
+        # Append deterministic strict JSON enforcement to every prompt to
+        # force providers to return canonical JSON only (no fences, no prose).
+        rendered += "\n\n" + self._strict_json_instructions()
+        return rendered
+
+    def _strict_json_instructions(self) -> str:
+        """Return a deterministic, strict JSON instruction block appended to prompts.
+
+        This enforces provider-side structured output and lists the canonical
+        RecallItem fields to avoid name mismatch.
+        """
+        # Use RecallItem model fields as the canonical set of allowed keys.
+        recall_fields = sorted(list(RecallItem.model_fields.keys()))
+        fields_list = ", ".join(recall_fields)
+
+        instructions = (
+            "IMPORTANT: Return ONLY valid JSON. DO NOT include any explanatory "
+            "text, headings, markdown, or code fences. Do not include any content "
+            "outside the single JSON payload.\n"
+            "- The response must be a single JSON object (or array only when the "
+            "template explicitly requires it).\n"
+            "- Use these exact field names if present: "
+            f"{fields_list}.\n"
+            "- Use ISO 8601 for timestamps (e.g. 2023-01-01T12:00:00Z).\n"
+            "- Do not wrap the JSON in backticks or code fences.\n"
+            "- Do not prepend or append any prose, explanation, or commentary.\n"
+            "- If a field cannot be inferred, return an empty string or empty array.\n"
+            "- Return the JSON only and nothing else.\n"
+            "Example minimal output: {\"title\": \"...\", \"content\": \"...\"}\n"
+        )
+        return instructions
 
     def build_system_prompt(
         self,

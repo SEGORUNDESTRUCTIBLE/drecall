@@ -1,8 +1,8 @@
 """Metadata-aware duplicate backend.
 
-Matches on metadata fields such as `dedup_key`, `source`, `datasource_id`, or
-arbitrary user-provided identifiers. Returns high-confidence matches when
-metadata aligns, and supports configurable keys to consider.
+Matches on metadata fields such as `duplicate_fingerprint` or explicit
+user-provided duplicate keys. It does not treat broad fields like `source`
+or `datasource_id` as exact duplicates by default.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ class MetadataBackend:
         keys: sequence of metadata keys to consider, ordered by priority.
     """
 
-    def __init__(self, keys: Sequence[str] = ('dedup_key', 'source', 'datasource_id')) -> None:
+    def __init__(self, keys: Sequence[str] = ('duplicate_fingerprint',)) -> None:
         self.keys = keys
 
     def find_matches(self, candidate: Dict[str, any], existing: Iterable[Dict[str, any]]) -> List[DuplicateMatch]:
@@ -30,7 +30,15 @@ class MetadataBackend:
                 cand_val = candidate.get(key)
                 rec_val = record.get(key)
                 if cand_val is not None and rec_val is not None and str(cand_val) == str(rec_val):
-                    matches.append(DuplicateMatch(id=record.get('id'), title=record.get('title'), similarity=1.0, type=DuplicateType.EXACT, metadata={'matched_key': key, 'value': cand_val}))
+                    matches.append(
+                        DuplicateMatch(
+                            id=record.get('id'),
+                            title=record.get('title'),
+                            similarity=1.0,
+                            type=DuplicateType.EXACT,
+                            metadata={'matched_key': key, 'value': cand_val},
+                        )
+                    )
                     break
 
         return matches

@@ -1,0 +1,27 @@
+{
+  "db_properties": {
+    "Name": {
+      "id": "title",
+      "name": "Name",
+      "description": null,
+      "type": "title",
+      "title": {}
+    }
+  },
+  "safe_props": {
+    "name": {
+      "name": "Name",
+      "type": "title"
+    }
+  },
+  "suggested_properties": [
+    "State",
+    "Next Review",
+    "Last Reviewed",
+    "Recall Priority",
+    "Weak Memory",
+    "Difficulty"
+  ],
+  "modified": [],
+  "errors": []
+}

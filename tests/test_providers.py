@@ -121,8 +121,47 @@ def test_gemini_provider_initialization() -> None:
     print("✓ GeminiProvider initialization passed")
 
 
+def test_groq_provider_response_extraction() -> None:
+    print_header("TEST 5: GroqProvider Response Extraction")
+
+    class FakeMessage:
+        def __init__(self, content: str):
+            self.content = content
+
+    class FakeChoice:
+        def __init__(self, content: str):
+            self.message = FakeMessage(content)
+
+    class FakeResponse:
+        def __init__(self, content: str):
+            self.choices = [FakeChoice(content)]
+
+    groq = GroqProvider(api_key="dummy", model="mixtral")
+    groq._call_with_retries = lambda fn: FakeResponse('{"status":"ok"}')
+
+    result = groq.generate("Hello", expect_json=False)
+    assert isinstance(result, str)
+    assert result == '{"status":"ok"}'
+
+    # Dict-like response object should be extracted correctly as well
+    class FakeDictResponse(dict):
+        pass
+
+    fake_dict_resp = FakeDictResponse({
+        "choices": [
+            {"message": {"content": '{"status":"ok"}'}},
+        ]
+    })
+    groq._call_with_retries = lambda fn: fake_dict_resp
+    result = groq.generate("Hello", expect_json=False)
+    assert isinstance(result, str)
+    assert result == '{"status":"ok"}'
+
+    print("✓ GroqProvider response extraction passed")
+
+
 def test_error_handling() -> None:
-    print_header("TEST 5: Error Handling Without API Calls")
+    print_header("TEST 6: Error Handling Without API Calls")
 
     groq = GroqProvider(api_key="dummy", model="mixtral")
     gemini = GeminiProvider(api_key="dummy", model="pro")
