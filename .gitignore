@@ -42,13 +42,17 @@ wheelhouse/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Pytest / test cache
+# Pytest / test cache and artifacts
 .pytest_cache/
 nosetests.xml
 coverage.xml
 .coverage
 *.cover
 *.py,cover
+test_results.txt
+test_output.log
+pytest_output.txt
+pytest_run_output.txt
 
 # mypy
 .mypy_cache/
@@ -84,6 +88,9 @@ Icon?
 *.temp
 tmp/
 temp/
+artifacts/
+reports/
+output/
 
 # Backup files
 *.bak
