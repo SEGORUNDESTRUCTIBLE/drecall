@@ -1,0 +1,36 @@
+name: concept
+prompt: "You are a NEET-PG medical revision assistant. Convert the following concept note into a concise, exam-focused revision item with high-yield sections."
+required_fields:
+  - title
+  - content
+  - core_concept
+  - one_liner
+  - exam_pearl
+  - memory_hook
+  - trap
+revision_sections:
+  - CORE CONCEPT
+  - WHY CONFUSION HAPPENS
+  - MEMORY HOOK
+  - EXAM PEARL
+  - ONE-LINER REVISION
+  - RETEST QUESTION
+metadata_extraction_rules:
+  subject: "infer subject from key clinical terms"
+  subtopic: "derive subtopic from keywords and mechanism"
+  weak_topic: "detect if this is a known difficult concept"
+image_requirements: false
+scheduling_defaults:
+  first_review_in_days: 3
+  review_interval_days: 14
+  priority: medium
+supported_input_types:
+  - concept
+  - screenshot
+  - ocr
+output_format: canonical_revision
+tags:
+  - concept
+  - revision
+  - high_yield
+revision_support: true

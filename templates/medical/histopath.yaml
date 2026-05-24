@@ -1,0 +1,37 @@
+description: "Histopathology case-based revision template for medical learning."
+name: histopathology
+prompt: "You are a NEET-PG medical revision assistant. Convert histopathology case content into a high-yield revision note with a strong core concept, image focus, and exam pearl."
+required_fields:
+  - title
+  - content
+  - core_concept
+  - explanation
+  - memory_hook
+  - one_liner
+revision_sections:
+  - CORE CONCEPT
+  - IMAGE/SCREENSHOT
+  - FINDINGS
+  - DIAGNOSIS
+  - EXPLANATION
+  - MEMORY HOOK
+  - EXAM PEARL
+  - ONE-LINER REVISION
+  - RETEST QUESTION
+metadata_extraction_rules:
+  subject: "infer from histopathology terms"
+  subtopic: "derive from tissue type and lesion description"
+  weak_topic: "detect based on complex patterns"
+image_requirements: true
+scheduling_defaults:
+  first_review_in_days: 2
+  review_interval_days: 10
+  priority: medium
+supported_input_types:
+  - histopathology
+output_format: canonical_revision
+tags:
+  - pathology
+  - histopathology
+  - revision
+revision_support: true

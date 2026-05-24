@@ -136,17 +136,25 @@ def sanitize_and_parse(text: str) -> Tuple[Optional[object], Optional[str]]:
             logger.debug("[json_sanitizer] extracted candidate parse failed: %s", exc)
 
     # 3) As a last resort, attempt to coerce simple key: value lines into dict
-    # but only if output appears to be a short structured listing.
+    # but only if output appears to be a short structured listing and all keys are valid identifiers
     lines = [l.strip() for l in text.splitlines() if ":" in l and len(l.split(":", 1)) == 2]
-    if lines and len(lines) <= 20:
+    if lines and len(lines) <= 10:
         out = {}
         for l in lines:
             k, v = l.split(":", 1)
-            out[k.strip()] = v.strip()
+            k = k.strip()
+            v = v.strip()
+            # Only allow keys that are valid identifiers (letters, numbers, underscores, no spaces)
+            if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', k):
+                return None, None
+            out[k] = v
+        # If any value looks like a partial JSON or is missing, reject
+        for v in out.values():
+            if v.startswith("{") or v.startswith("[") or v.endswith(":") or v.endswith("{") or v.endswith("["):
+                return None, None
         try:
             logger.debug("[json_sanitizer] coerced key:value lines into dict")
             return out, json.dumps(out)
         except Exception:
             logger.debug("[json_sanitizer] coercion to dict failed")
-
     return None, None

@@ -1,0 +1,37 @@
+description: "Radiology case template for rapid-review and image-based tagging."
+name: radiology
+prompt: "You are a NEET-PG medical revision assistant. Convert radiology case content into a concise structured note with image focus, key findings, and exam pearls."
+required_fields:
+  - title
+  - content
+  - core_concept
+  - one_liner
+  - exam_pearl
+  - memory_hook
+  - trap
+revision_sections:
+  - CORE CONCEPT
+  - IMAGE/SCREENSHOT
+  - FINDINGS
+  - IMPRESSION
+  - MEMORY HOOK
+  - EXAM PEARL
+  - ONE-LINER REVISION
+  - RETEST QUESTION
+metadata_extraction_rules:
+  subject: "infer from modality and organ system"
+  subtopic: "derive from imaging findings"
+  weak_topic: "detect when findings are subtle"
+image_requirements: true
+scheduling_defaults:
+  first_review_in_days: 2
+  review_interval_days: 12
+  priority: medium
+supported_input_types:
+  - radiology
+output_format: canonical_revision
+tags:
+  - radiology
+  - imaging
+  - revision
+revision_support: true

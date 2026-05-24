@@ -8,9 +8,10 @@ import json
 import logging
 import re
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from config import get_settings
+from core.contracts.provider_contracts import ProviderResponse, ProviderPermanentError, ProviderTransientError
 from .base_provider import BaseProvider
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,11 @@ class GeminiProvider(BaseProvider):
             **kwargs: Additional configuration (e.g., temperature, top_p).
         """
         model = GEMINI_MODELS.get(model.lower()) if model.lower() in GEMINI_MODELS else model
-        api_key = api_key or get_settings().gemini_api_key
+        try:
+            api_key = api_key or get_settings().gemini_api_key
+        except Exception:
+            # Graceful fallback if settings unavailable (e.g., in test context)
+            api_key = api_key
 
         super().__init__(api_key=api_key, model=model, timeout=timeout, **kwargs)
         self.retries = retries
@@ -102,7 +107,7 @@ class GeminiProvider(BaseProvider):
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> ProviderResponse:
         """Generate text completion using Gemini API.
         
         Args:
@@ -155,7 +160,9 @@ class GeminiProvider(BaseProvider):
                     request_options={"timeout": self.timeout},
                 )
 
-            response = self._call_with_retries(_call)
+            start_ts = time.time()
+            response = self._retryable_call(_call)
+            latency_ms = (time.time() - start_ts) * 1000
 
             result = getattr(response, "text", None)
             if result is None:
@@ -170,22 +177,50 @@ class GeminiProvider(BaseProvider):
             )
 
             if expect_json:
-                return self._ensure_json(result)
+                parsed = self._ensure_json(result)
+                return ProviderResponse(
+                    provider=self.provider_name(),
+                    model=self.model,
+                    text=json.dumps(parsed) if not isinstance(parsed, str) else parsed,
+                    tokens_used=None,
+                    latency_ms=latency_ms,
+                    error=None,
+                    metadata={"format": "json"},
+                )
 
             if isinstance(result, (dict, list)):
-                return json.dumps(result)
-            if result is None:
-                return ""
-            if not isinstance(result, str):
-                return str(result)
-            return result
-            
+                raw_text = json.dumps(result)
+            elif result is None:
+                raw_text = ""
+            elif not isinstance(result, str):
+                raw_text = str(result)
+            else:
+                raw_text = result
+
+            return ProviderResponse(
+                provider=self.provider_name(),
+                model=self.model,
+                text=raw_text,
+                tokens_used=None,
+                latency_ms=latency_ms,
+                error=None,
+                metadata={"format": "text"},
+            )
+
         except TimeoutError as e:
             logger.error(f"Gemini API timeout after {self.timeout}s")
-            raise TimeoutError(f"Gemini request exceeded {self.timeout}s timeout") from e
+            raise ProviderTransientError(f"Gemini request exceeded {self.timeout}s timeout") from e
+        except ImportError as e:
+            logger.error("Missing Gemini client package")
+            raise ProviderPermanentError(
+                "google-generativeai package is required for GeminiProvider"
+            ) from e
+        except ValueError as e:
+            logger.error(f"Gemini input validation error: {e}")
+            raise ProviderPermanentError(str(e)) from e
         except Exception as e:
             logger.error(f"Gemini API error: {type(e).__name__}: {e}")
-            raise RuntimeError(f"Gemini API error: {e}") from e
+            raise ProviderPermanentError(f"Gemini API error: {e}") from e
     
     def validate_credentials(self) -> bool:
         """Validate Gemini API credentials with a test call.
@@ -210,27 +245,29 @@ class GeminiProvider(BaseProvider):
                     request_options={"timeout": self.timeout},
                 )
 
-            response = self._call_with_retries(_call)
+            response = self._retryable_call(_call)
             
             logger.info("Gemini credentials validated successfully")
             return True
             
+        except ProviderPermanentError as e:
+            logger.warning(f"Gemini credential validation failed permanently: {e}")
+            return False
         except Exception as e:
             logger.warning(f"Gemini credential validation failed: {e}")
             return False
 
     def _call_with_retries(self, fn):
-        last_exc = None
-        for attempt in range(1, max(1, self.retries) + 1):
-            try:
-                return fn()
-            except Exception as e:
-                last_exc = e
-                wait = self.retry_backoff * (2 ** (attempt - 1))
-                logger.warning(f"Gemini call failed (attempt {attempt}/{self.retries}): {e}; retrying in {wait}s")
-                time.sleep(wait)
-        logger.error("All Gemini retries failed")
-        raise last_exc
+        return self._retryable_call(fn)
+
+    def health_check(self) -> bool:
+        return self.validate_credentials()
+
+    def available_models(self) -> List[str]:
+        return list(GEMINI_MODELS.values()) + list(GEMINI_MODELS.keys())
+
+    def token_usage(self) -> Dict[str, Any]:
+        return {"tokens_used": None}
 
     def _ensure_json(self, text: str):
         if text is None:

@@ -6,3 +6,7 @@ groq>=0.4,<1
 google-generativeai>=0.3,<1
 notion-client>=2.2,<3
 pytest>=8.0,<9
+
+# Optional: for robust YAML parsing (custom parser used for MVP)
+PyYAML>=6.0,<7
+

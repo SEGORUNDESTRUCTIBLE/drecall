@@ -1,0 +1,48 @@
+name: mcq
+version: 1.0
+description: "Structured MCQ revision template for medical exam preparation."
+fields:
+  - name: title
+    type: title
+    description: "Question stem title."
+  - name: question
+    type: rich_text
+  - name: answer
+  name: mcq
+  prompt: "You are a NEET-PG medical revision assistant. Transform the MCQ content into a structured revision entry with a clear core concept, exam pearl, memory hook, and a retest question."
+  required_fields:
+    - title
+    - content
+    - options
+    - answer
+    - explanation
+    - core_concept
+    - memory_hook
+    - one_liner
+  revision_sections:
+    - CORE CONCEPT
+    - MCQ QUESTION
+    - OPTIONS
+    - ANSWER
+    - EXPLANATION
+    - MEMORY HOOK
+    - EXAM PEARL
+    - ONE-LINER REVISION
+    - RETEST QUESTION
+  metadata_extraction_rules:
+    subject: "infer the subject from the question topic"
+    weak_topic: "detect based on difficulty and pitfalls"
+  image_requirements: false
+  scheduling_defaults:
+    first_review_in_days: 1
+    review_interval_days: 7
+    priority: high
+  supported_input_types:
+    - mcq
+    - pyq
+  output_format: canonical_revision
+  tags:
+    - mcq
+    - exam
+    - revision
+  revision_support: true

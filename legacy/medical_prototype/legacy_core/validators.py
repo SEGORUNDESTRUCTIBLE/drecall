@@ -2,7 +2,7 @@
 # VALIDATORS
 # =====================================================
 
-from core.schemas import *
+from legacy_core.schemas import *
 
 # =====================================================
 # VALIDATE REQUIRED KEYS

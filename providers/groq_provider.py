@@ -8,9 +8,10 @@ import json
 import logging
 import re
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from config import get_settings
+from core.contracts.provider_contracts import ProviderResponse, ProviderPermanentError, ProviderTransientError
 from .base_provider import BaseProvider
 
 logger = logging.getLogger(__name__)
@@ -54,11 +55,15 @@ class GroqProvider(BaseProvider):
             timeout: Request timeout in seconds (default: 30).
             **kwargs: Additional configuration (e.g., temperature, max_tokens defaults).
         """
-        active_settings = get_settings()
-        api_key = api_key or active_settings.groq_api_key
-
-        # Determine model: explicit argument first, otherwise settings-driven model
-        resolved_model = model or active_settings.get_provider("groq")
+        try:
+            active_settings = get_settings()
+            api_key = api_key or active_settings.groq_api_key
+            # Determine model: explicit argument first, otherwise settings-driven model
+            resolved_model = model or active_settings.get_provider("groq")
+        except Exception:
+            # Graceful fallback if settings unavailable (e.g., in test context)
+            api_key = api_key
+            resolved_model = model
 
         # Resolve alias names (e.g., 'mixtral' -> full model id)
         if resolved_model and isinstance(resolved_model, str):
@@ -111,7 +116,7 @@ class GroqProvider(BaseProvider):
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> ProviderResponse:
         """Generate text completion using Groq API.
         
         Args:
@@ -162,15 +167,16 @@ class GroqProvider(BaseProvider):
                 request_params["max_tokens"] = max_tokens
             request_params.update(kwargs)
             
-            # Make API call with timeout handling
-            # API call with retries
+            # Make API call with timeout handling and timing
             def _call():
                 return self.client.chat.completions.create(
                     **request_params,
                     timeout=self.timeout,
                 )
 
+            start_ts = time.time()
             response = self._call_with_retries(_call)
+            latency_ms = (time.time() - start_ts) * 1000
 
             # Extract response text
             raw_choices = getattr(response, "choices", None)
@@ -202,22 +208,48 @@ class GroqProvider(BaseProvider):
             )
 
             if expect_json:
-                return self._ensure_json(result)
+                parsed = self._ensure_json(result)
+                return ProviderResponse(
+                    provider=self.provider_name(),
+                    model=self.model,
+                    text=json.dumps(parsed) if not isinstance(parsed, str) else parsed,
+                    tokens_used=None,
+                    latency_ms=latency_ms,
+                    error=None,
+                    metadata={"format": "json", **request_params},
+                )
 
             if isinstance(result, (dict, list)):
-                return json.dumps(result)
-            if result is None:
-                return ""
-            if not isinstance(result, str):
-                return str(result)
-            return result
-            
+                raw_text = json.dumps(result)
+            elif result is None:
+                raw_text = ""
+            elif not isinstance(result, str):
+                raw_text = str(result)
+            else:
+                raw_text = result
+
+            return ProviderResponse(
+                provider=self.provider_name(),
+                model=self.model,
+                text=raw_text,
+                tokens_used=None,
+                latency_ms=latency_ms,
+                error=None,
+                metadata={"format": "text", **request_params},
+            )
+
         except TimeoutError as e:
             logger.error(f"Groq API timeout after {self.timeout}s")
-            raise TimeoutError(f"Groq request exceeded {self.timeout}s timeout") from e
+            raise ProviderTransientError(f"Groq request exceeded {self.timeout}s timeout") from e
+        except ImportError as e:
+            logger.error("Missing Groq client package")
+            raise ProviderPermanentError("groq package is required for GroqProvider") from e
+        except ValueError as e:
+            logger.error(f"Groq input validation error: {e}")
+            raise ProviderPermanentError(str(e)) from e
         except Exception as e:
             logger.error(f"Groq API error: {type(e).__name__}: {e}")
-            raise RuntimeError(f"Groq API error: {e}") from e
+            raise ProviderPermanentError(f"Groq API error: {e}") from e
     
     def validate_credentials(self) -> bool:
         """Validate Groq API credentials with a test call.
@@ -240,28 +272,29 @@ class GroqProvider(BaseProvider):
                     timeout=self.timeout,
                 )
 
-            response = self._call_with_retries(_call)
+            response = self._retryable_call(_call)
             
             logger.info("Groq credentials validated successfully")
             return True
             
+        except ProviderPermanentError as e:
+            logger.warning(f"Groq credential validation failed permanently: {e}")
+            return False
         except Exception as e:
             logger.warning(f"Groq credential validation failed: {e}")
             return False
 
     def _call_with_retries(self, fn):
-        """Call a function with simple retry/backoff logic."""
-        last_exc = None
-        for attempt in range(1, max(1, self.retries) + 1):
-            try:
-                return fn()
-            except Exception as e:
-                last_exc = e
-                wait = self.retry_backoff * (2 ** (attempt - 1))
-                logger.warning(f"Groq call failed (attempt {attempt}/{self.retries}): {e}; retrying in {wait}s")
-                time.sleep(wait)
-        logger.error("All Groq retries failed")
-        raise last_exc
+        return self._retryable_call(fn)
+
+    def health_check(self) -> bool:
+        return self.validate_credentials()
+
+    def available_models(self) -> List[str]:
+        return list(GROQ_MODELS.values()) + list(GROQ_MODELS.keys())
+
+    def token_usage(self) -> Dict[str, Any]:
+        return {"tokens_used": None}
 
     def _ensure_json(self, text: str):
         """Ensure the response is valid JSON, attempt sanitization if needed."""
@@ -296,11 +329,11 @@ class GroqProvider(BaseProvider):
     
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the current Groq model.
-        
+
         Returns metadata about the model configuration.
         Note: Detailed capabilities info requires separate API call
         that may not always be available.
-        
+
         Returns:
             Dictionary with model metadata.
         """

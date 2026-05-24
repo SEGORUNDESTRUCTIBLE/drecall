@@ -13,21 +13,21 @@ import json
 
 from groq import Groq
 
-from config import GROQ_API_KEY
+from legacy_config import GROQ_API_KEY
 
-from core.prompt_builder import (
+from legacy_core.prompt_builder import (
     build_prompt
 )
 
-from core.normalizers import (
+from legacy_core.normalizers import (
     normalize_data
 )
 
-from core.validators import (
+from legacy_core.validators import (
     full_validation
 )
 
-from core.duplicate_detector import (
+from legacy_core.duplicate_detector import (
     find_duplicates
 )
 

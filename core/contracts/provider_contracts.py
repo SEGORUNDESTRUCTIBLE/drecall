@@ -23,8 +23,9 @@ PIPELINE GUARANTEES:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Dict, Optional, Protocol
+
+from ..schemas import ProviderResponse
 
 
 class ProviderError(Exception):
@@ -37,25 +38,6 @@ class ProviderTransientError(ProviderError):
 
 class ProviderPermanentError(ProviderError):
     """Permanent error (invalid credentials, unsupported request)."""
-
-
-@dataclass(frozen=True)
-class ProviderResponse:
-    """Canonical provider response contract.
-
-    Fields:
-    - raw_text: original textual response from the provider
-    - parsed: optional parsed JSON-like payload (dict/list)
-    - metadata: provider-specific metadata (latency, request_id)
-    - ok: whether the response passes basic sanity checks
-    - error: human-friendly error message when `ok` is False
-    """
-
-    raw_text: str
-    parsed: Optional[Dict[str, Any]] = None
-    metadata: Dict[str, Any] = None
-    ok: bool = True
-    error: Optional[str] = None
 
 
 class ProviderAdapter(Protocol):

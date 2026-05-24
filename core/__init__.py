@@ -13,17 +13,32 @@ Key modules:
 - duplicate_detector: Similarity detection and deduplication
 """
 
+from .content_classifier import ContentClassifier
+from .domain_detector import DomainDetector
+from .adaptive_pipeline import AdaptivePipeline, AdaptivePipelineResult
+from .canonical_schema import CanonicalRevisionPayload
 from .duplicate_detector import DuplicateDetector
 from .ingestion_engine import IngestionEngine
+from .metadata_extractor import MetadataExtractor
 from .normalizers import Normalizer
 from .prompt_builder import PromptBuilder
 from .revision_engine import RevisionEngine
 from .retrieval import RetrievalEngine
 from .runtime import RuntimeLoader, SessionManager, RuntimeState
+from .schema_planner import SchemaPlanner
+from .template_selector import TemplateSelector
 from .schemas import ProcessingResult, ProviderResponse, RecallItem
 from .validators import Validator
 
 __all__ = [
+    "DomainDetector",
+    "ContentClassifier",
+    "TemplateSelector",
+    "AdaptivePipeline",
+    "AdaptivePipelineResult",
+    "CanonicalRevisionPayload",
+    "MetadataExtractor",
+    "SchemaPlanner",
     "RecallItem",
     "ProcessingResult",
     "ProviderResponse",

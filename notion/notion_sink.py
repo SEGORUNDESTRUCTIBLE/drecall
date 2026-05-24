@@ -24,6 +24,7 @@ from core.contracts.persistence_contracts import (
     PersistenceTransientError,
     PersistencePermanentError,
 )
+from notion.datasource_registry import resolve_datasource_alias, summarize_registry
 
 
 class NotionSinkError(PersistencePermanentError):
@@ -177,7 +178,13 @@ class NotionSink(PersistenceSink):
 
     def resolve_database_id(self, datasource_id: str) -> str:
         mapping = self.datasource_map.get(datasource_id, {})
-        return mapping.get("database_id") or mapping.get("data_source_id") or datasource_id
+        # Use resolver to ensure we never return an unresolved alias string
+        try:
+            resolved = resolve_datasource_alias(datasource_id, datasource_map=self.datasource_map)
+            return resolved.get("database_id") or resolved.get("data_source_id")
+        except Exception:
+            # fall back to raw value if resolver fails — caller should handle invalid ids
+            return datasource_id
 
     def _retryable_call(self, func):
         last_exc = None
@@ -218,14 +225,21 @@ class NotionSink(PersistenceSink):
         blocks = self.block_builder.build_blocks(item)
 
         mapping = self.datasource_map.get(datasource_id, {})
-        resolved_database_id = mapping.get("database_id")
-        resolved_data_source_id = mapping.get("data_source_id")
+        # Prefer explicit mapping entries, but resolve via registry to avoid alias leakage
+        try:
+            resolved = resolve_datasource_alias(datasource_id, datasource_map=self.datasource_map)
+        except ValueError as exc:
+            raise PersistencePermanentError(f"Unable to resolve datasource '{datasource_id}': {exc}") from exc
+
+        resolved_database_id = resolved.get("database_id")
+        resolved_data_source_id = resolved.get("data_source_id")
+
         if resolved_database_id:
             parent = {"database_id": resolved_database_id}
         elif resolved_data_source_id:
             parent = {"data_source_id": resolved_data_source_id}
         else:
-            parent = {"database_id": self.resolve_database_id(datasource_id)}
+            raise PersistencePermanentError(f"Resolved datasource for '{datasource_id}' did not contain a usable id")
 
         def _call():
             if not self.client:
@@ -258,9 +272,8 @@ class NotionSink(PersistenceSink):
         if dedup_key.startswith("title:"):
             searched_key = dedup_key.split(":", 1)[1]
         else:
-            # We cannot safely resolve arbitrary dedup keys unless they are stored
-            # in a known Notion property. Only title-based dedup keys are supported.
-            return False
+            # For arbitrary dedup keys, search using the key itself
+            searched_key = dedup_key
 
         try:
             res = self.client.search(query=searched_key)
@@ -269,9 +282,10 @@ class NotionSink(PersistenceSink):
                 if self._page_matches_search_query(page, searched_key):
                     logger.info("NotionSink.exists dedup_key=%s found=true", dedup_key)
                     return True
-            if not dedup_key.startswith("title:"):
-                logger.info("NotionSink.exists dedup_key=%s found_by_generic_search=%s", dedup_key, bool(results))
-                return bool(results)
+            # If search returned any results, consider it a potential duplicate
+            if results:
+                logger.info("NotionSink.exists dedup_key=%s found_by_search=%s", dedup_key, bool(results))
+                return True
             logger.info("NotionSink.exists dedup_key=%s found=false", dedup_key)
             return False
         except Exception as exc:

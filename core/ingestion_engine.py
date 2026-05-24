@@ -16,6 +16,7 @@ from .prompt_builder import PromptBuilder
 from .schemas import RecallItem
 from .validators import Validator
 from .parsing.json_sanitizer import sanitize_and_parse
+from core.contracts.provider_contracts import ProviderResponse as ProviderContractResponse
 
 logger = logging.getLogger(__name__)
 
@@ -122,29 +123,34 @@ class IngestionEngine:
 
         provider_name = self.provider.__class__.__name__
         self._log_stage(f"Provider response from {provider_name}")
-        # Prefer provider-native JSON output when supported (e.g., Groq 'expect_json').
         provider_output = None
         try:
             try:
                 provider_output = self.provider.generate(prompt, expect_json=True)
             except TypeError:
-                # Provider does not accept expect_json flag; fall back.
                 provider_output = self.provider.generate(prompt)
         except Exception as exc:
             logger.error("Provider generation failed: %s", exc)
             raise
-        # Normalize provider output into parsed JSON if possible, with sanitization
+
         parsed = None
         sanitized_preview = None
+        raw_text = None
 
-        # If provider returned native dict/list, use it directly
-        if isinstance(provider_output, (dict, list)):
+        if isinstance(provider_output, ProviderContractResponse):
+            if not provider_output.ok:
+                raise RuntimeError(provider_output.error or "Provider returned failed response")
+            parsed = provider_output.parsed
+            raw_text = provider_output.raw_text
+            if parsed is not None:
+                sanitized_preview = json.dumps(parsed)
+
+        if parsed is None and isinstance(provider_output, (dict, list)):
             parsed = provider_output
             sanitized_preview = json.dumps(provider_output)
 
-        # Otherwise attempt sanitize-and-parse from string
         if parsed is None:
-            raw_text = provider_output if isinstance(provider_output, str) else str(provider_output)
+            raw_text = raw_text if isinstance(raw_text, str) else (provider_output if isinstance(provider_output, str) else str(provider_output))
             logger.debug("[IngestionEngine] provider raw preview=%s", (raw_text or '')[:300].replace('\n', ' '))
             parsed, sanitized_preview = sanitize_and_parse(raw_text)
 
@@ -172,7 +178,16 @@ class IngestionEngine:
                 logger.error("Provider recovery attempt failed: %s", exc)
                 raise RuntimeError("Provider recovery attempt failed") from exc
 
-            if isinstance(recovery_output, (dict, list)):
+            if isinstance(recovery_output, ProviderContractResponse):
+                if not recovery_output.ok:
+                    raise RuntimeError(recovery_output.error or "Recovery provider returned failed response")
+                parsed = recovery_output.parsed
+                raw_text = recovery_output.raw_text
+                if parsed is not None:
+                    sanitized_preview = json.dumps(parsed)
+                else:
+                    parsed, sanitized_preview = sanitize_and_parse(raw_text)
+            elif isinstance(recovery_output, (dict, list)):
                 parsed = recovery_output
                 sanitized_preview = json.dumps(recovery_output)
             else:
@@ -182,7 +197,7 @@ class IngestionEngine:
 
         # Final validation of parsed provider data
         if parsed is None:
-            raise ValueError("Provider response is not valid JSON after sanitization and recovery")
+            raise ValueError("Provider response validation failed: unable to parse JSON after sanitization and recovery")
 
         # Ensure structured data is valid according to existing validators
         valid_response, error_message = True, None

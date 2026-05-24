@@ -1,6 +1,6 @@
 from notion_client import Client
 
-from config import (
+from legacy_config import (
 
     NOTION_TOKEN,
 

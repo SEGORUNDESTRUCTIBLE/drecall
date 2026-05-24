@@ -11,14 +11,14 @@ print("STARTING NOTION INGESTION")
 
 from notion_client import Client
 
-from config import (
+from legacy_config import (
 
     NOTION_TOKEN,
 
     DATA_SOURCE_ID
 )
 
-from core.block_builder import (
+from legacy_core.block_builder import (
 
     build_revision_blocks
 )

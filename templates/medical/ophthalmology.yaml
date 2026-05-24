@@ -1,0 +1,36 @@
+name: ophthalmology
+prompt: "You are a NEET-PG medical revision assistant. Transform the ophthalmology content into a focused revision note with clinical pearls and visual pattern recognition cues."
+required_fields:
+  - title
+  - content
+  - core_concept
+  - one_liner
+  - exam_pearl
+  - memory_hook
+  - trap
+  - image_required
+revision_sections:
+  - CORE CONCEPT
+  - IMAGE/SCREENSHOT
+  - WHY CONFUSION HAPPENS
+  - MEMORY HOOK
+  - EXAM PEARL
+  - ONE-LINER REVISION
+  - RETEST QUESTION
+metadata_extraction_rules:
+  subject: "ophthalmology"
+  subtopic: "infer from clinical findings or exam presentation"
+  weak_topic: "mark as weak if wording suggests uncertainty"
+image_requirements: true
+scheduling_defaults:
+  first_review_in_days: 3
+  review_interval_days: 14
+  priority: medium
+supported_input_types:
+  - ophthalmology
+output_format: canonical_revision
+tags:
+  - ophthalmology
+  - vision
+  - revision
+revision_support: true

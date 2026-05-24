@@ -11,6 +11,7 @@ import os
 from typing import Any, Dict, Optional
 
 from config.settings import get_settings
+from notion.datasource_registry import resolve_datasource_alias
 
 logger = logging.getLogger("drecall.notion_manager")
 
@@ -58,6 +59,44 @@ class NotionManager:
         except Exception as exc:
             logger.warning("Failed to initialize Notion client: %s", exc)
             return None
+
+    @staticmethod
+    def describe_configuration(datasource_map: Optional[Dict[str, Any]] = None) -> str:
+        """Return a short diagnostic summary of Notion-related configuration."""
+        settings = get_settings()
+        datasource_map = datasource_map or {}
+
+        lines = []
+        lines.append("Notion startup configuration:")
+        lines.append(f"  persistence_enabled={settings.enable_notion}")
+        lines.append(f"  notion_api_key_present={bool(settings.notion_api_key)}")
+        lines.append(f"  notion_database_id={settings.notion_database_id}")
+        lines.append(f"  notion_datasource_id={settings.notion_datasource_id}")
+
+        if datasource_map:
+            lines.append("  datasources:")
+            for alias in sorted(datasource_map.keys()):
+                try:
+                    resolved = resolve_datasource_alias(alias, datasource_map=datasource_map)
+                    lines.append(
+                        f"    - {alias}: database_id={resolved.get('database_id') or 'None'} "
+                        f"data_source_id={resolved.get('data_source_id') or 'None'}"
+                    )
+                except Exception as exc:
+                    lines.append(f"    - {alias}: UNRESOLVED ({exc})")
+        else:
+            lines.append("  datasources: none configured")
+            try:
+                resolved_default = resolve_datasource_alias("notion_default", datasource_map=datasource_map)
+                lines.append(
+                    f"  notion_default (env): database_id={resolved_default.get('database_id') or 'None'} "
+                    f"data_source_id={resolved_default.get('data_source_id') or 'None'}"
+                )
+            except Exception as exc:
+                lines.append(f"  notion_default (env): UNRESOLVED ({exc})")
+
+        summary = "\n".join(lines)
+        return summary
 
     @staticmethod
     @staticmethod

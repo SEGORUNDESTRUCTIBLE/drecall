@@ -20,6 +20,7 @@ from core.validators import Validator
 from core.revision_engine import RevisionEngine
 from core.schemas import RecallItem
 from config.settings import get_settings
+from notion.datasource_registry import resolve_datasource_alias
 
 try:
     from notion.notion_sink import NotionSink
@@ -50,23 +51,26 @@ def select_datasource(default: str = None, datasource_map: Dict[str, Any] = None
         print(f" {i}. {k}")
 
 
-def resolve_datasource_alias(alias: str, env_status: Any) -> Optional[str]:
-    # The application uses logical datasource aliases for selection.
-    # Resolve the alias to a concrete Notion database UUID from env config.
-    if alias != "notion_default":
-        return alias
-    return env_status.database_id or env_status.datasource_id
-
-    choice = input(f"Select datasource [1-{len(keys)}] or press Enter for {keys[0]}: ")
+def log_notion_startup_health(env_status: Any, alias_key: str, resolved_target_id: Optional[str], datasource_map: Dict[str, Any]) -> None:
     try:
-        if choice.strip() == "":
-            return keys[0]
-        idx = int(choice) - 1
-        if 0 <= idx < len(keys):
-            return keys[idx]
-    except Exception:
-        pass
-    return keys[0]
+        summary = NotionManager.describe_configuration(datasource_map=datasource_map)
+        LOG.info("=== Notion startup health ===\n%s", summary)
+    except Exception as exc:
+        LOG.warning("Notion diagnostics failed without blocking startup: %s", exc)
+
+    LOG.info(
+        "Notion launch status: persistence_enabled=%s token_present=%s alias=%s resolved_target_id=%s",
+        env_status.enabled,
+        env_status.token_present,
+        alias_key,
+        resolved_target_id or "(missing)",
+    )
+
+    if env_status.enabled and not resolved_target_id:
+        LOG.warning(
+            "Notion persistence requested but no resolved datasource ID could be found. "
+            "Persistence will be disabled until a valid datasource mapping is configured.",
+        )
 
 
 def multiline_input(prompt: str = ">>> ") -> str:
@@ -416,18 +420,16 @@ def main() -> None:
     # Notion environment detection and safe initialization
     env_status = NotionManager.detect_env()
     alias_key = "notion_default"
-    resolved_target_id = resolve_datasource_alias(alias_key, env_status)
+    resolved_target_id = resolve_datasource_alias(alias_key, datasource_map={})
     datasource_map = {}
 
-    print("Persistence:", "ENABLED" if env_status.enabled else "DISABLED")
-    print("Notion token:", "present" if env_status.token_present else "missing")
-    print("Datasource alias:", alias_key)
-    print("Resolved target ID:", resolved_target_id or "(missing)")
-    print("Datasource resolution:", "VERIFIED" if resolved_target_id else "MISSING")
+    log_notion_startup_health(env_status, alias_key, resolved_target_id, datasource_map)
 
     if NotionSink is not None and env_status.enabled and not resolved_target_id:
-        print("Notion persistence disabled: no database ID could be resolved for alias",
-              alias_key)
+        LOG.warning(
+            "Notion persistence disabled because no database ID could be resolved for alias %s",
+            alias_key,
+        )
         env_status.enabled = False
 
     # If token present but ENABLE_NOTION not set, offer to enable for this session
@@ -468,29 +470,33 @@ def main() -> None:
                     datasource_entry["title"] = title_field
                     datasource_map = {alias_key: datasource_entry}
                     sandbox_ok = NotionManager.is_sandbox_name(title)
-                    print("Database access:", "VERIFIED")
-                    print(f"Database title: {title}")
-                    print(f"Schema properties: {len(info.get('properties', {}))}")
-                    print(f"Mapped title field: {title_field}")
+                    LOG.info("Notion database access verified: title=%s schema_properties=%d title_field=%s",
+                             title,
+                             len(info.get("properties", {})),
+                             title_field)
                     if not sandbox_ok:
                         resp = input("Warning: database name does not look like a sandbox. Type YES to proceed: ")
                         if resp.strip().upper() != "YES":
-                            print("Notion persistence aborted by user (sandbox check)")
+                            LOG.warning("Notion persistence aborted by user due to sandbox check")
                             notion_client = None
                         else:
-                            print("Proceeding with Notion persistence as requested")
+                            LOG.info("Proceeding with Notion persistence after sandbox confirmation")
                 else:
-                    print("Database access: FAILED —", info.get("error") if info else "unknown error")
+                    LOG.warning("Notion database access failed: %s", info.get("error") if info else "unknown error")
                     notion_client = None
+                log_notion_startup_health(env_status, alias_key, resolved_target_id, datasource_map)
             else:
                 notion_client = None
+                log_notion_startup_health(env_status, alias_key, resolved_target_id, datasource_map)
 
             notion_sink = NotionSink(client=notion_client, datasource_map=datasource_map)
         else:
-            print("Notion client initialization failed — persistence disabled")
+            LOG.warning("Notion client initialization failed — persistence disabled")
+            log_notion_startup_health(env_status, alias_key, resolved_target_id, datasource_map)
             notion_sink = NotionSink(client=None, datasource_map=datasource_map)
     else:
         # Not configured or disabled
+        log_notion_startup_health(env_status, alias_key, resolved_target_id, datasource_map)
         notion_sink = NotionSink(client=None, datasource_map=datasource_map) if NotionSink is not None else None
 
     # revision engine persistence support
@@ -516,11 +522,11 @@ def main() -> None:
     except Exception:
         model_info = None
 
-    print(f"Selected datasource: {selected_datasource}")
-    print(f"Active provider: {provider_name}")
+    LOG.info("Selected datasource: %s", selected_datasource)
+    LOG.info("Active provider: %s", provider_name)
     if model_info:
-        print(f"Active model: {model_info.get('model')}")
-    print(f"Dry-run mode: {dry_run}\n")
+        LOG.info("Active model: %s", model_info.get("model"))
+    LOG.info("Dry-run mode: %s", dry_run)
 
     runtime_summary = runtime_state.summary()
     print("=== Runtime memory summary ===")

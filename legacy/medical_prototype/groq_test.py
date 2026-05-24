@@ -10,7 +10,7 @@ print("STARTING GROQ TEST")
 
 from groq import Groq
 
-from config import GROQ_API_KEY
+from legacy_config import GROQ_API_KEY
 
 print("✅ Imports successful")
 

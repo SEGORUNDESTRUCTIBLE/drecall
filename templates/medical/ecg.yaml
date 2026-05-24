@@ -1,0 +1,38 @@
+description: "ECG interpretation template for concise cardiology revision." 
+name: ecg
+prompt: "You are a NEET-PG medical revision assistant. Convert the ECG content into a structured revision note emphasizing waveform findings, clinical diagnosis, and exam pearls."
+required_fields:
+  - title
+  - content
+  - core_concept
+  - one_liner
+  - exam_pearl
+  - memory_hook
+  - trap
+  - image_required
+revision_sections:
+  - CORE CONCEPT
+  - ECG FINDINGS
+  - INTERPRETATION
+  - DIAGNOSIS
+  - MEMORY HOOK
+  - EXAM PEARL
+  - ONE-LINER REVISION
+  - RETEST QUESTION
+metadata_extraction_rules:
+  subject: "cardiology"
+  subtopic: "infer from ECG pattern description"
+  weak_topic: "detect if multiple differential diagnoses are present"
+image_requirements: true
+scheduling_defaults:
+  first_review_in_days: 1
+  review_interval_days: 7
+  priority: high
+supported_input_types:
+  - ecg
+output_format: canonical_revision
+tags:
+  - cardiology
+  - ecg
+  - revision
+revision_support: true

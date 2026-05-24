@@ -13,9 +13,8 @@ def test_extract_fenced_json():
 def test_sanitize_and_parse_malformed():
     text = "Response:\n{ title: 'Bad JSON', content: 'Oops' }"
     parsed, sanitized = sanitize_and_parse(text)
-    assert parsed is not None
-    assert isinstance(parsed, dict)
-    assert parsed.get("title") == "Bad JSON"
+    assert parsed is None
+    assert sanitized is None
 
 
 def test_sanitize_coerce_lines():

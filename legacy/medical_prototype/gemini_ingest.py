@@ -13,7 +13,7 @@ import json
 
 from google import genai
 
-from config import GEMINI_API_KEY
+from legacy_config import GEMINI_API_KEY
 
 from normalizers import normalize_data
 

@@ -1,5 +1,13 @@
 # dRecall - Production-grade .gitignore
 
+# IDE & Editor Configuration (contain API keys and local settings)
+.continue/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
 # Environment files
 .env
 .env.*

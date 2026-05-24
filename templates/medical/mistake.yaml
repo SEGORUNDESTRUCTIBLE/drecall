@@ -1,0 +1,35 @@
+description: "Mistake-analysis template for error tracking and trap creation." 
+name: mistake
+prompt: "You are a NEET-PG medical revision assistant. Convert the mistake analysis into a structured note that captures the trap, the correct concept, and a strong memory hook."
+required_fields:
+  - title
+  - content
+  - trap
+  - core_concept
+  - one_liner
+  - memory_hook
+revision_sections:
+  - CORE CONCEPT
+  - WHY CONFUSION HAPPENS
+  - TRAP
+  - CORRECT CONCEPT
+  - MEMORY HOOK
+  - EXAM PEARL
+  - ONE-LINER REVISION
+  - RETEST QUESTION
+metadata_extraction_rules:
+  subject: "infer from error topic or domain"
+  weak_topic: "mark as weak when the mistake reveals a conceptual gap"
+image_requirements: false
+scheduling_defaults:
+  first_review_in_days: 1
+  review_interval_days: 5
+  priority: high
+supported_input_types:
+  - mistake
+output_format: canonical_revision
+tags:
+  - mistake
+  - pitfall
+  - revision
+revision_support: true

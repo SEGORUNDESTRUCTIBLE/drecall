@@ -1,6 +1,6 @@
 from google import genai
 
-from config import GEMINI_API_KEY
+from legacy_config import GEMINI_API_KEY
 
 print("STARTING MODEL LIST TEST")
 
