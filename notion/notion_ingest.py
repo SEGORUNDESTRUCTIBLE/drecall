@@ -14,13 +14,20 @@ from .block_builder import build_blocks
 logger = logging.getLogger(__name__)
 
 
+def _normalize_id(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    candidate = str(value).strip()
+    return candidate if candidate else None
+
+
 class NotionIngest:
     def __init__(self, client: Optional[NotionClientWrapper] = None, database_id: Optional[str] = None, datasource_id: Optional[str] = None):
         self.client = client or NotionClientWrapper()
         active_settings = get_settings()
 
-        resolved_datasource = datasource_id or active_settings.notion_datasource_id
-        resolved_database = database_id or active_settings.notion_database_id
+        resolved_datasource = _normalize_id(datasource_id or active_settings.notion_datasource_id)
+        resolved_database = _normalize_id(database_id or active_settings.notion_database_id)
 
         if resolved_datasource:
             self.target_id = resolved_datasource

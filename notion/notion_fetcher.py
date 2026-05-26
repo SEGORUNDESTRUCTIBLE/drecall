@@ -6,6 +6,13 @@ from typing import Optional, Dict, Any, List
 from config import get_settings
 from .notion_client import NotionClientWrapper
 
+
+def _normalize_id(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    candidate = str(value).strip()
+    return candidate if candidate else None
+
 logger = logging.getLogger(__name__)
 
 
@@ -14,8 +21,8 @@ class NotionFetcher:
         self.client = client or NotionClientWrapper()
         active_settings = get_settings()
 
-        resolved_datasource = active_settings.notion_datasource_id
-        resolved_database = database_id or active_settings.notion_database_id
+        resolved_datasource = _normalize_id(active_settings.notion_datasource_id)
+        resolved_database = _normalize_id(database_id or active_settings.notion_database_id)
 
         if resolved_datasource:
             self.target_id = resolved_datasource

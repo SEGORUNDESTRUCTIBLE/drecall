@@ -138,10 +138,10 @@ class IngestionEngine:
         raw_text = None
 
         if isinstance(provider_output, ProviderContractResponse):
-            if not provider_output.ok:
+            if provider_output.error:
                 raise RuntimeError(provider_output.error or "Provider returned failed response")
-            parsed = provider_output.parsed
-            raw_text = provider_output.raw_text
+            parsed = getattr(provider_output, 'parsed', None)
+            raw_text = getattr(provider_output, 'raw_text', None)
             if parsed is not None:
                 sanitized_preview = json.dumps(parsed)
 

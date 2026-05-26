@@ -6,7 +6,7 @@ and content synchronization.
 
 from .block_builder import BlockBuilder
 from .database_creator import DatabaseCreator
-from .notion_client import NotionClient
+from .notion_client import NotionClientWrapper as NotionClient
 from .notion_fetcher import NotionFetcher
 from .notion_ingest import NotionIngester
 from .database_autocreator import DatabaseAutocreator

@@ -1,4 +1,5 @@
 import pytest
+from types import SimpleNamespace
 
 from config import reset_settings
 from notion.notion_ingest import NotionIngest
@@ -6,8 +7,11 @@ from core.schemas import RecallItem
 
 
 def test_ingest_detects_datasource_env(monkeypatch):
-    monkeypatch.delenv("NOTION_DATABASE_ID", raising=False)
-    monkeypatch.setenv("NOTION_DATASOURCE_ID", "ds_abc")
+    monkeypatch.setattr(
+        "notion.notion_ingest.get_settings",
+        lambda: SimpleNamespace(notion_datasource_id="ds_abc", notion_database_id=None),
+    )
+    monkeypatch.setenv("NOTION_API_KEY", "fake-token")
     reset_settings()
     ingestor = NotionIngest(client=None)
     assert ingestor.datasource_mode is True
@@ -16,8 +20,11 @@ def test_ingest_detects_datasource_env(monkeypatch):
 
 
 def test_ingest_warns_on_legacy_db(monkeypatch, caplog):
-    monkeypatch.delenv("NOTION_DATASOURCE_ID", raising=False)
-    monkeypatch.setenv("NOTION_DATABASE_ID", "db_123")
+    monkeypatch.setattr(
+        "notion.notion_ingest.get_settings",
+        lambda: SimpleNamespace(notion_datasource_id=None, notion_database_id="db_123"),
+    )
+    monkeypatch.setenv("NOTION_API_KEY", "fake-token")
     reset_settings()
     caplog.clear()
     ingestor = NotionIngest(client=None)
